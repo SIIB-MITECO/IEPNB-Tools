@@ -52,6 +52,7 @@ author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,wfs,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature
 homepage=https://iepnb.gob.es/
+repository=https://github.com/SIIB-MITECO/IEPNB-Tools
 category=Web
 icon=icon.png
 experimental=False
