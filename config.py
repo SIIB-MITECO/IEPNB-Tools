@@ -67,6 +67,7 @@ CATALOGO_WMS = {
     },
     # --- EIKOS - IEPNB ---
     "EIKOS - Alertas Anuales (IEPNB)": {
+        "Alertas Anuales 2025": {"url": f"{BASE_GEOSERVER}/alertas_anuales_vegetacion/wms", "layers": "alertas_anuales_2025"},
         "Alertas Anuales 2024": {"url": f"{BASE_GEOSERVER}/alertas_anuales_vegetacion/wms", "layers": "alertas_anuales_2024"},
         "Alertas Anuales 2023": {"url": f"{BASE_GEOSERVER}/alertas_anuales_vegetacion/wms", "layers": "alertas_anuales_2023"},
         "Alertas Anuales 2022": {"url": f"{BASE_GEOSERVER}/alertas_anuales_vegetacion/wms", "layers": "alertas_anuales_2022"},
