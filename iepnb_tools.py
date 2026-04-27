@@ -69,11 +69,11 @@ class IepnbTools:
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v1.0", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v1.0.3", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
 
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v1.0", self.action)
+        self.iface.addPluginToMenu("&IEPNB - Tools v1.0.3", self.action)
 
         self.iface.initializationCompleted.connect(self.restore_ui)
 
@@ -102,7 +102,7 @@ class IepnbTools:
         if not self.gsv_tool:
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
         self.iface.mapCanvas().setMapTool(self.gsv_tool)
-        self.iface.messageBar().pushInfo("IEPNB Tools v1.0", "Haz clic en el mapa para abrir Google Street View")
+        self.iface.messageBar().pushInfo("IEPNB Tools v1.0.3", "Haz clic en el mapa para abrir Google Street View")
 
     # --- FUNCIONALIDAD: CARGAR PNOA Y LIMITES EN GRUPO ---
     def load_reference_layers(self):
@@ -180,7 +180,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v1.0", self.iface.mainWindow())
+            self.dockwidget = QDockWidget("IEPNB - Tools v1.0.3", self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
             self.dockwidget.visibilityChanged.connect(self.store_visibility)
 
@@ -202,7 +202,7 @@ class IepnbTools:
                 icon_header_lbl.setPixmap(pix_icon)
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v1.0 ")
+            title_lbl = QLabel("IEPNB - Tools v1.0.3 ")
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
