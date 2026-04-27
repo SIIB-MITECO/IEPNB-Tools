@@ -12,19 +12,27 @@
  ***************************************************************************/
 """
 
-import json, os, tempfile, webbrowser, random
+import json
+import os
+import tempfile
+import webbrowser
+import random
 
-# --- CAMBIO PARA COMPATIBILIDAD QGIS 3 Y 4 ---
-from qgis.PyQt.QtWidgets import *
-from qgis.PyQt.QtCore import *
+# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
+from qgis.PyQt.QtWidgets import (QLabel, QDialog, QVBoxLayout, QScrollArea,
+                                 QWidget, QGridLayout, QFrame, QPushButton,
+                                 QLineEdit, QHBoxLayout, QTableWidget,
+                                 QHeaderView, QAbstractItemView, QTableWidgetItem)
+from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery
 from qgis.PyQt import QtNetwork
-from qgis.PyQt.QtGui import QColor, QPixmap, QFont
-# ---------------------------------------------
+from qgis.PyQt.QtGui import QColor, QPixmap
 
-from qgis.core import *
+from qgis.core import (QgsNetworkAccessManager, QgsApplication, QgsProject,
+                       QgsVectorLayer, QgsFillSymbol, QgsSingleSymbolRenderer,
+                       QgsCoordinateTransform)
 
 # URL OFICIAL DE DISTRIBUCION
-from .config import API_DISTRIBUCION, API_CATALOGO, URL_FICHA_EIDOS
+from .config import API_DISTRIBUCION, API_CATALOGO
 
 
 class ImageLoader(QLabel):
@@ -81,7 +89,6 @@ class PhotoGalleryDialog(QDialog):
                 continue
 
             url = f"https://{ruta}" if not ruta.startswith('http') else ruta
-            prioridad = img_data.get('es_prioridad', 0)
 
             frame = QFrame()
             frame.setFrameStyle(QFrame.StyledPanel)
@@ -134,8 +141,6 @@ class SpeciesTab(QWidget):
         layout.addWidget(self.disclaimer_lbl)
 
         # --- FILA 2: ACCIONES ---
-
-        # --- FILA 2: ACCIONES ---
         data_layout = QHBoxLayout()
         self.btn_clear = QPushButton("Limpiar")
         self.btn_clear.setIcon(QgsApplication.getThemeIcon('/mActionDeleteSelected.svg'))
@@ -175,7 +180,7 @@ class SpeciesTab(QWidget):
     def clear_all(self):
         self.table.setRowCount(0)
         layers = QgsProject.instance().mapLayers().values()
-        to_delete = [l.id() for l in layers if l.name().startswith("Dist: ")]
+        to_delete = [layer.id() for layer in layers if layer.name().startswith("Dist: ")]
         QgsProject.instance().removeMapLayers(to_delete)
         self.status_lbl.setText("Todo limpio.")
 
@@ -304,7 +309,7 @@ class SpeciesTab(QWidget):
             pass
 
     def fetch_photos(self, id_t, name):
-        url = QUrl(f"https://iepnb.gob.es/api/especie/v_imagenes")
+        url = QUrl("https://iepnb.gob.es/api/especie/v_imagenes")
         q = QUrlQuery()
         q.addQueryItem("id_taxon", f"eq.{id_t}")
         url.setQuery(q)

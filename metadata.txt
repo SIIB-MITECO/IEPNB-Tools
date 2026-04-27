@@ -1,10 +1,10 @@
 [general]
 name=IEPNB Tools
 qgisMinimumVersion=3.22
-qgisMaximumVersion=4.99
+qgisMaximumVersion=3.99
 description=Comprehensive management, spatial analysis, and reporting for the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB)
 about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la gestión del Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB).
- 
+
  ES - Funcionalidades:
  1. Identificación espacial avanzada y reportes automáticos (ENP, RN2000, MUP...).
  2. Buscador territorial optimizado por capas.
@@ -12,7 +12,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
  4. Acceso a servicios interoperables WMS/WFS (MFE, Copernicus, PNOA, EIKOS).
  5. Consulta integrada en la fototeca del CENEAM.
  6. Herramientas de contexto: Cartografía base y Google Street View.
- 
+
  EN - Features:
  1. Advanced spatial identification and automated reporting (ENP, Natura 2000, MUP...).
  2. Layer-based territorial search.
@@ -20,7 +20,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
  4. Direct access to interoperable WMS/WFS services (MFE, Copernicus, PNOA, EIKOS).
  5. Integrated access to the CENEAM photo library.
  6. Context tools: basemaps and Google Street View.
- 
+
  CA - Funcionalitats:
  1. Identificació espacial avançada i informes automàtics (ENP, RN2000, MUP...).
  2. Cercador territorial optimitzat per capes.
@@ -28,7 +28,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
  4. Accés a serveis interoperables WMS/WFS (MFE, Copernicus, PNOA, EIKOS).
  5. Consulta integrada a la fototeca del CENEAM.
  6. Eines de context: Cartografia base y Google Street View.
- 
+
  GL - Funcionalidades:
  1. Identificación espacial avanzada e informes automáticos (ENP, RN2000, MUP...).
  2. Buscador territorial optimizado por capas.
@@ -36,7 +36,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
  4. Acceso a servizos interoperables WMS/WFS (MFE, Copernicus, PNOA, EIKOS).
  5. Consulta integrada na fototeca do CENEAM.
  6. Ferramentas de contexto: cartografía base e Google Street View.
- 
+
  EU - Ezaugarriak:
  1. Espazio-identifikazio aurreratua eta txosten automatikoak (ENP, RN2000, MUP...).
  2. Geruzen bidez optimizatutako lurralde-bilatzailea.
@@ -44,16 +44,28 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
  4. WMS/WFS zerbitzu elkarreragileetarako sarbidea (MFE, Copernicus, PNOA, EIKOS).
  5. CENEAM fototekan integratutako kontsulta.
  6. Testuinguru-tresnak: Oinarrizko kartografia eta Google Street View.
- 
+
  Soporte: buzon-bdatos@miteco.es
 
-version=1.0
+version=1.0.2
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
 repository=https://github.com/SIIB-MITECO/IEPNB-Tools
-tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,wfs,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature
 homepage=https://iepnb.gob.es/
-category=Web
+tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,wfs,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature
+changelog=Versión 1.0.2:
+    - Corrección de advertencias de estilo PEP 8 (E741, E701, E722).
+    - Renombrado de variables iteradoras ambiguas en identify y species.
+    - Separación de sentencias en línea y gestión explícita de excepciones en territory.
+
+Versión 1.0.1:
+    - Limpieza integral de código siguiendo estándares PEP8.
+    - Eliminación de importaciones de tipo asterisco (*) en todos los módulos.
+    - Mejora de la compatibilidad de importaciones para QGIS 3 y 4.
+    - Corrección de errores de validación en f-strings y espacios en blanco.
+    - Optimización de la cabecera de metadatos y URLs de soporte.
+category=Vector
 icon=icon.png
 experimental=False
+deprecated=False

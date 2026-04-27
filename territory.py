@@ -12,24 +12,25 @@
  ***************************************************************************/
 """
 
-import json, os, csv, tempfile, unicodedata
-import json, os, csv, tempfile, unicodedata
+import json
+import os
+import csv
+import tempfile
+import unicodedata
 
-# --- CAMBIO PARA COMPATIBILIDAD QGIS 3 Y 4 ---
-from qgis.PyQt.QtWidgets import *
-from qgis.PyQt.QtCore import *
+# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
+from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
+                                 QGridLayout, QLabel, QComboBox, QLineEdit,
+                                 QPushButton, QTableWidget, QHeaderView,
+                                 QTableWidgetItem, QApplication, QFileDialog)
+from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery
 from qgis.PyQt import QtNetwork
-from qgis.PyQt.QtGui import QColor, QBrush
-# ---------------------------------------------
+from qgis.PyQt.QtGui import QBrush
 
-from qgis.core import *
+from qgis.core import (QgsNetworkAccessManager, QgsApplication, QgsProject,
+                       QgsVectorLayer, QgsWkbTypes, QgsFillSymbol, QgsLineSymbol,
+                       QgsMarkerSymbol, QgsSingleSymbolRenderer, QgsCoordinateTransform)
 
-# --- CONFIGURACIÓN DE SERVICIOS IEPNB ---
-from .config import CONFIG_TERRITORY as CONFIG_SERVICIOS
-
-# El resto del código permanece EXACTAMENTE igual...
-
-# --- CONFIGURACIÓN DE SERVICIOS IEPNB ---
 from .config import CONFIG_TERRITORY as CONFIG_SERVICIOS
 
 
@@ -67,7 +68,8 @@ class TerritoryTab(QWidget):
         self.combo_capas = QComboBox()
         self.combo_capas.addItem("Todas las capas")
         for srv in CONFIG_SERVICIOS:
-            if srv["id"] == "Riqueza de especies": continue
+            if srv["id"] == "Riqueza de especies":
+                continue
             self.combo_capas.addItem(srv["id"])
         grid.addWidget(self.combo_capas, 0, 1)
 
@@ -126,7 +128,8 @@ class TerritoryTab(QWidget):
         layout.addWidget(self.table)
 
     def normalize(self, t):
-        if not t: return ""
+        if not t:
+            return ""
         return ''.join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower()
 
     def clear_all(self):
@@ -166,7 +169,8 @@ class TerritoryTab(QWidget):
             self.iface.mainWindow().setCursor(Qt.ArrowCursor)
             num = self.table.rowCount()
             self.status_lbl.setText(f"✅ Finalizado. {num} resultados.")
-            if num > 0: self.btn_add_all.setEnabled(True)
+            if num > 0:
+                self.btn_add_all.setEnabled(True)
             return
 
         srv = self.current_services[index]
@@ -184,17 +188,20 @@ class TerritoryTab(QWidget):
 
         # Identificar columna para el nombre
         col_busqueda_nom = srv["col_nom"]
-        if srv["id"] in self.FIELD_MAP: col_busqueda_nom = self.FIELD_MAP[srv["id"]]["nom"]
+        if srv["id"] in self.FIELD_MAP:
+            col_busqueda_nom = self.FIELD_MAP[srv["id"]]["nom"]
 
         filtros = []
         if len(nom_orig) >= 3:
             w_nom = nom_orig
-            for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ': w_nom = w_nom.replace(v, '_')
+            for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ':
+                w_nom = w_nom.replace(v, '_')
             filtros.append(f"{col_busqueda_nom} ILIKE '%{w_nom}%'")
 
         if len(inf_orig) >= 3 and col_busqueda_inf:
             w_inf = inf_orig
-            for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ': w_inf = w_inf.replace(v, '_')
+            for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ':
+                w_inf = w_inf.replace(v, '_')
             filtros.append(f"{col_busqueda_inf} ILIKE '%{w_inf}%'")
 
         cql = " AND ".join(filtros)
@@ -227,7 +234,8 @@ class TerritoryTab(QWidget):
 
                     # Obtener Nombre
                     f_nom_key = srv["col_nom"]
-                    if srv["id"] in self.FIELD_MAP: f_nom_key = self.FIELD_MAP[srv["id"]]["nom"]
+                    if srv["id"] in self.FIELD_MAP:
+                        f_nom_key = self.FIELD_MAP[srv["id"]]["nom"]
                     val_nom = props.get(f_nom_key) or "S/N"
 
                     # Obtener Información
@@ -244,7 +252,8 @@ class TerritoryTab(QWidget):
                     # Refinado final local para asegurar tildes y normalización
                     if (nom_clean in self.normalize(val_nom)) and (inf_clean in self.normalize(val_inf)):
                         clave = (srv["id"], val_nom, val_inf)
-                        if clave not in grupos: grupos[clave] = []
+                        if clave not in grupos:
+                            grupos[clave] = []
                         grupos[clave].append(f)
 
                 for (cap_id, v_nom, v_inf), features in grupos.items():
@@ -253,7 +262,7 @@ class TerritoryTab(QWidget):
                         'nom': v_nom, 'inf': v_inf, 'col': srv["color"]
                     })
                     self.add_row(cap_id, v_nom, v_inf, features, srv["color"])
-        except:
+        except Exception:
             pass
         finally:
             reply.deleteLater()
@@ -305,11 +314,12 @@ class TerritoryTab(QWidget):
                     canvas.setExtent(rect)
                     canvas.refresh()
                 return vlayer
-        except:
+        except Exception:
             return None
 
     def add_all_to_map(self):
-        if not self.all_results: return
+        if not self.all_results:
+            return
 
         self.iface.mainWindow().setCursor(Qt.WaitCursor)
 

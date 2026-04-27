@@ -12,25 +12,34 @@
  ***************************************************************************/
 """
 
-import json, os, tempfile, uuid, time, csv, base64
+import json
+import os
+import tempfile
+import uuid
+import csv
 from datetime import datetime
-from collections import Counter
 
-# --- SUSTITUYE TUS IMPORTS DE PYQT5 POR ESTOS ---
-from qgis.PyQt.QtWidgets import *
-from qgis.PyQt.QtCore import *
+# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
+from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
+                                 QPushButton, QLabel, QTableWidget,
+                                 QHeaderView, QFileDialog, QMessageBox,
+                                 QTableWidgetItem, QApplication)
+from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QVariant, QEventLoop, pyqtSignal
 from qgis.PyQt import QtNetwork
-from qgis.PyQt.QtGui import QColor, QIcon, QImage, QPainter, QTextDocument
+from qgis.PyQt.QtGui import QColor, QTextDocument
 from qgis.PyQt.QtPrintSupport import QPrinter
 
-# Para la señal, lo más limpio es esto:
-from qgis.PyQt.QtCore import pyqtSignal
-# -----------------------------------------------
-
-from qgis.core import *
+from qgis.core import (QgsWkbTypes, QgsPointXY, QgsGeometry,
+                       QgsNetworkAccessManager, QgsApplication,
+                       QgsProject, QgsVectorLayer, QgsFeature,
+                       QgsFillSymbol, QgsCoordinateTransform,
+                       QgsCoordinateReferenceSystem, QgsDistanceArea,
+                       QgsJsonUtils, QgsLineSymbol,
+                       QgsSingleSymbolRenderer, QgsField)
 from qgis.gui import QgsMapTool, QgsMapToolEmitPoint, QgsRubberBand
 
 from .config import CONFIG_IDENTIFY as CONFIG_SERVICIOS
+
 
 class ManualPolygonTool(QgsMapTool):
     polygon_finished = pyqtSignal(object)
@@ -46,7 +55,8 @@ class ManualPolygonTool(QgsMapTool):
         if e.button() == Qt.LeftButton:
             p = self.toMapCoordinates(e.pos())
             self.points.append(QgsPointXY(p))
-            if len(self.points) == 1: self.rubber.addPoint(p, True)
+            if len(self.points) == 1:
+                self.rubber.addPoint(p, True)
             self.rubber.addPoint(p, True)
             self.rubber.show()
         elif e.button() == Qt.RightButton and len(self.points) > 2:
@@ -54,12 +64,14 @@ class ManualPolygonTool(QgsMapTool):
             self.deactivate()
 
     def canvasMoveEvent(self, e):
-        if len(self.points) > 0: self.rubber.movePoint(self.toMapCoordinates(e.pos()))
+        if len(self.points) > 0:
+            self.rubber.movePoint(self.toMapCoordinates(e.pos()))
 
     def deactivate(self):
         self.points = []
         self.rubber.reset(QgsWkbTypes.PolygonGeometry)
         super().deactivate()
+
 
 class IdentifyTab(QWidget):
     def __init__(self, iface):
@@ -206,7 +218,8 @@ class IdentifyTab(QWidget):
         for gname in [self.group_name, "Intersecciones"]:
             group = root.findGroup(gname)
             if group:
-                for ln in group.children(): QgsProject.instance().removeMapLayer(ln.layerId())
+                for ln in group.children():
+                    QgsProject.instance().removeMapLayer(ln.layerId())
                 root.removeChildNode(group)
         self.table.setRowCount(0)
         self.status_lbl.setText("Mapa limpiado.")
@@ -215,13 +228,16 @@ class IdentifyTab(QWidget):
         self.auto_intersect = False
         path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Capa", "",
                                               "Formatos Vectoriales (*.shp *.geojson *.gpkg *.kml *.kmz *.dxf *.tab *.csv);;Todos los archivos (*.*)")
-        if not path: return
+        if not path:
+            return
 
         vlayer_import = QgsVectorLayer(path, "temp_import", "ogr")
-        if not vlayer_import.isValid(): return
+        if not vlayer_import.isValid():
+            return
 
         geoms = [f.geometry() for f in vlayer_import.getFeatures() if f.hasGeometry()]
-        if not geoms: return
+        if not geoms:
+            return
         combined_geom = QgsGeometry.unaryUnion(geoms)
 
         canvas_crs = self.iface.mapCanvas().mapSettings().destinationCrs()
@@ -355,7 +371,8 @@ class IdentifyTab(QWidget):
 
                     for f in features:
                         geom_dict = f.get("geometry")
-                        if not geom_dict: continue
+                        if not geom_dict:
+                            continue
 
                         geom_json_str = json.dumps(geom_dict)
                         feat_geom = QgsJsonUtils.geometryFromGeoJson(geom_json_str)
@@ -372,7 +389,7 @@ class IdentifyTab(QWidget):
                     if filtered_features:
                         combined_info = ",".join(list(set(collected_infos)))
                         self.add_group_row(srv["id"], filtered_features, combined_info, srv["color"])
-            except Exception as e:
+            except Exception:
                 pass
 
         self.query_next_service(index + 1)
@@ -405,7 +422,8 @@ class IdentifyTab(QWidget):
             self.load_group_to_map(data["feature_list"], data["cap"], data["count_str"], data["info"], data["color"])
 
     def load_group_to_map(self, feature_list, cap, name_suffix, info, color):
-        if not feature_list: return
+        if not feature_list:
+            return
         tmp_path = os.path.join(tempfile.gettempdir(), f"res_grp_{uuid.uuid4().hex[:8]}.geojson")
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump({"type": "FeatureCollection", "features": feature_list}, f)
@@ -429,7 +447,8 @@ class IdentifyTab(QWidget):
             QgsProject.instance().addMapLayer(vlayer, False)
             group.addLayer(vlayer)
             self.result_layers.append(vlayer)
-            if self.study_area_geom: self.btn_intersect.setEnabled(True)
+            if self.study_area_geom:
+                self.btn_intersect.setEnabled(True)
 
     def run_intersection_analysis(self):
         self.iface.mainWindow().setCursor(Qt.WaitCursor)
@@ -572,7 +591,7 @@ class IdentifyTab(QWidget):
         reply.deleteLater()
         try:
             return json.loads(data)
-        except:
+        except Exception:
             return []
 
     def export_csv(self):
@@ -580,18 +599,19 @@ class IdentifyTab(QWidget):
         default_save = os.path.join(desktop_path, "Resultados_IEPNB.csv")
 
         path_csv, _ = QFileDialog.getSaveFileName(self, "Guardar CSV", default_save, "CSV (*.csv)")
-        if not path_csv: return
+        if not path_csv:
+            return
         self.iface.mainWindow().setCursor(Qt.WaitCursor)
         try:
             with open(path_csv, mode='w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f, delimiter=';')
                 writer.writerow(["Capa", "Elemento", "Valor", "Unidad", "Info Origen"])
-                for l in self.generated_intersection_layers:
-                    capa_name = l.name().replace('Corte: ', '')
-                    for feat in l.getFeatures():
+                for layer_item in self.generated_intersection_layers:
+                    capa_name = layer_item.name().replace('Corte: ', '')
+                    for feat in layer_item.getFeatures():
                         nom = "S/N"
                         for c in ["nombre", "monte", "site_name", "nb_via", "id"]:
-                            idx = l.fields().indexOf(c)
+                            idx = layer_item.fields().indexOf(c)
                             if idx != -1 and feat.attribute(idx):
                                 nom = str(feat.attribute(idx))
                                 break
@@ -611,7 +631,8 @@ class IdentifyTab(QWidget):
         default_save = os.path.join(desktop_path, "Resultados_IEPNB.pdf")
 
         path_pdf, _ = QFileDialog.getSaveFileName(self, "Guardar PDF", default_save, "PDF (*.pdf)")
-        if not path_pdf: return
+        if not path_pdf:
+            return
         self.iface.mainWindow().setCursor(Qt.WaitCursor)
         self.status_lbl.setText("Iniciando generación de informe...")
 
@@ -639,10 +660,12 @@ class IdentifyTab(QWidget):
         }
 
         esp_ids = set()
-        for l in self.generated_intersection_layers:
-            if l.customProperty("service_id") == "Riqueza Esp.":
-                for feat in l.getFeatures(): [esp_ids.add(x.strip()) for x in
-                                              str(feat.attribute("info_origen")).split(",") if x.strip() and x != "-"]
+        for layer_item in self.generated_intersection_layers:
+            if layer_item.customProperty("service_id") == "Riqueza Esp.":
+                for feat in layer_item.getFeatures():
+                    for x in str(feat.attribute("info_origen")).split(","):
+                        if x.strip() and x != "-":
+                            esp_ids.add(x.strip())
 
         tax_prior = ['mamífero', 'ave', 'reptil', 'pez', 'anfibio', 'invertebrado', 'planta vascular',
                      'planta no vascular', 'hongo', 'alga', 'cromista', 'bacteria']
@@ -650,7 +673,8 @@ class IdentifyTab(QWidget):
         def prio(g):
             g_low = str(g).lower()
             for i, ord_g in enumerate(tax_prior):
-                if ord_g in g_low: return i
+                if ord_g in g_low:
+                    return i
             return 99
 
         import time
@@ -729,34 +753,34 @@ class IdentifyTab(QWidget):
                     h1 {{ color: #2c3e50; border-bottom: 2px solid #2c3e50; margin-bottom: 10px; }}
                     h3 {{ color: #2980b9; margin-top: 15px; border-left: 4px solid #2980b9; padding-left: 8px; }}
 
-                    table {{ 
-                        width: 100%; 
-                        border-collapse: separate; 
+                    table {{
+                        width: 100%;
+                        border-collapse: separate;
                         border-spacing: 0;
-                        margin-top: 5px; 
+                        margin-top: 5px;
                     }}
-                    th, td {{ 
-                        border: 1px solid #bdc3c7; 
-                        padding: 8px; 
-                        text-align: left; 
-                        vertical-align: top; 
+                    th, td {{
+                        border: 1px solid #bdc3c7;
+                        padding: 8px;
+                        text-align: left;
+                        vertical-align: top;
                     }}
                     th {{ background-color: #ecf0f1; font-weight: bold; vertical-align: middle; }}
 
-                    tr, td {{ page-break-inside: avoid; }} 
+                    tr, td {{ page-break-inside: avoid; }}
 
                     a {{ color: #2980b9; text-decoration: none; font-weight: bold; }}
                     img {{ display: block; margin: 0 auto; }}
 
                     .footer-logos {{ width: 100%; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }}
                     .crs-info {{ color: #7f8c8d; font-style: italic; margin-top: 2px; font-size: 9px; }}
-                    .disclaimer {{ 
-                        background-color: #f4f7f9; 
-                        border: 1px solid #d1d9e1; 
-                        padding: 10px; 
-                        margin-top: 30px; 
-                        font-size: 8.5px; 
-                        color: #555; 
+                    .disclaimer {{
+                        background-color: #f4f7f9;
+                        border: 1px solid #d1d9e1;
+                        padding: 10px;
+                        margin-top: 30px;
+                        font-size: 8.5px;
+                        color: #555;
                         line-height: 1.4;
                         text-align: justify;
                     }}
@@ -781,27 +805,29 @@ class IdentifyTab(QWidget):
                     <th width="18%" style='text-align:center;'>% Ocupación</th>
                 </tr>"""
 
-        for l in self.generated_intersection_layers:
-            sid = l.customProperty("service_id")
+        for layer_item in self.generated_intersection_layers:
+            sid = layer_item.customProperty("service_id")
 
             if sid == "Riqueza Esp.":
                 continue
 
-            for feat in l.getFeatures():
+            for feat in layer_item.getFeatures():
                 fig_val = ""
                 nom_val = "S/N"
 
                 if sid in FIELD_MAP:
                     conf = FIELD_MAP[sid]
                     if conf["fig"]:
-                        f_idx = l.fields().indexOf(conf["fig"])
-                        if f_idx != -1 and feat.attribute(f_idx): fig_val = str(feat.attribute(f_idx))
+                        f_idx = layer_item.fields().indexOf(conf["fig"])
+                        if f_idx != -1 and feat.attribute(f_idx):
+                            fig_val = str(feat.attribute(f_idx))
                     if conf["nom"]:
-                        n_idx = l.fields().indexOf(conf["nom"])
-                        if n_idx != -1 and feat.attribute(n_idx): nom_val = str(feat.attribute(n_idx))
+                        n_idx = layer_item.fields().indexOf(conf["nom"])
+                        if n_idx != -1 and feat.attribute(n_idx):
+                            nom_val = str(feat.attribute(n_idx))
                 else:
                     for c in ["nombre", "monte", "site_name", "nb_via", "id"]:
-                        idx = l.fields().indexOf(c)
+                        idx = layer_item.fields().indexOf(c)
                         if idx != -1 and feat.attribute(idx):
                             nom_val = str(feat.attribute(idx))
                             break
@@ -813,7 +839,7 @@ class IdentifyTab(QWidget):
                     pct = min((val / self.area_estudio_ha) * 100, 100.0)
                     porcentaje_html = f"<span style='color: #d35400;'><b>{pct:.2f} %</b></span>"
 
-                html += f"<tr><td>{l.name().replace('Corte: ', '')}</td><td>{fig_val}</td><td>{nom_val}</td><td style='text-align:center;'><b>{val:.2f} {unit}</b></td><td style='text-align:center;'>{porcentaje_html}</td></tr>"
+                html += f"<tr><td>{layer_item.name().replace('Corte: ', '')}</td><td>{fig_val}</td><td>{nom_val}</td><td style='text-align:center;'><b>{val:.2f} {unit}</b></td><td style='text-align:center;'>{porcentaje_html}</td></tr>"
 
         if info_sp:
             html += """</table><h3>2. Riqueza de Especies (Clasificación Taxonómica)</h3>
@@ -839,11 +865,11 @@ class IdentifyTab(QWidget):
 
         html += f"""</table>
             <div class='disclaimer'>
-                <b>Nota legal e informativa:</b> Este informe se ha generado mediante herramientas SIG (QGIS) a partir de datos procedentes de servicios web. 
-                Las fotografías de especies mostradas proceden de la Fototeca del CENEAM y están sujetas a derechos de autor y condiciones de uso específicas. 
-                El presente documento tiene carácter puramente informativo y no sustituye, en ningún caso, a las certificaciones oficiales emitidas por los organismos competentes. 
-                La ausencia de registros de especies en el área de estudio no implica necesariamente su ausencia en el territorio, sino la inexistencia de datos georreferenciados 
-                almacenados en las bases de datos de distribución consultadas a la fecha de generación. Los cálculos de superficie y distancia se han realizado bajo el 
+                <b>Nota legal e informativa:</b> Este informe se ha generado mediante herramientas SIG (QGIS) a partir de datos procedentes de servicios web.
+                Las fotografías de especies mostradas proceden de la Fototeca del CENEAM y están sujetas a derechos de autor y condiciones de uso específicas.
+                El presente documento tiene carácter puramente informativo y no sustituye, en ningún caso, a las certificaciones oficiales emitidas por los organismos competentes.
+                La ausencia de registros de especies en el área de estudio no implica necesariamente su ausencia en el territorio, sino la inexistencia de datos georreferenciados
+                almacenados en las bases de datos de distribución consultadas a la fecha de generación. Los cálculos de superficie y distancia se han realizado bajo el
                 sistema de referencia oficial de España (RD 1071/2007) indicado en la cabecera de este documento.
             </div>
 

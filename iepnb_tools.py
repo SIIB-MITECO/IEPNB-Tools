@@ -23,7 +23,7 @@ from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
 
 from qgis.gui import QgsMapTool
 from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform, QgsRasterLayer, QgsLayerTreeGroup, Qgis)
+                       QgsCoordinateTransform, QgsRasterLayer)
 
 from .identify import IdentifyTab
 from .territory import TerritoryTab
@@ -177,7 +177,6 @@ class IepnbTools:
                 canvas.setExtent(layer_for_extent.extent())
                 canvas.refresh()
             # ----------------------------------------------------------------
-
 
     def run(self):
         if not self.dockwidget:

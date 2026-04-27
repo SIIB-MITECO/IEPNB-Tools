@@ -12,16 +12,18 @@
  ***************************************************************************/
 """
 
-# --- CAMBIO PARA COMPATIBILIDAD QGIS 3 Y 4 ---
-from qgis.PyQt.QtWidgets import *
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
+# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
+from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                                 QLineEdit, QTreeWidget, QTreeWidgetItem,
+                                 QPushButton)
+from qgis.PyQt.QtCore import Qt
 # ---------------------------------------------
 
-from qgis.core import *
-from qgis.gui import *
+from qgis.core import (QgsApplication, QgsProject, QgsRasterLayer,
+                       QgsMessageLog, Qgis)
 
 from .config import CATALOGO_WMS as CATALOGO_SERVICIOS
+
 
 class ServicesIEPNBTab(QWidget):
     def __init__(self, iface):

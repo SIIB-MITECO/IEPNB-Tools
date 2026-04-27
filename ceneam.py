@@ -15,15 +15,17 @@
 import webbrowser
 import re
 
-# --- CAMBIO PARA COMPATIBILIDAD QGIS 3 Y 4 ---
-from qgis.PyQt.QtWidgets import *
+# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
+from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                                 QLineEdit, QPushButton, QScrollArea, QFrame,
+                                 QFileDialog)
 from qgis.PyQt.QtCore import QUrl, Qt
-from qgis.PyQt.QtGui import QPixmap
 from qgis.PyQt.QtNetwork import QNetworkRequest
 # ---------------------------------------------
 
 from qgis.core import QgsNetworkAccessManager
 from .species import ImageLoader
+
 
 class CeneamTab(QWidget):
     def __init__(self, iface):
@@ -71,11 +73,11 @@ class CeneamTab(QWidget):
         )
         disclaimer.setWordWrap(True)
         disclaimer.setStyleSheet("""
-            font-style: italic; 
-            font-size: 10px; 
-            color: #7f8c8d; 
-            padding: 8px; 
-            background-color: #fdfdfd; 
+            font-style: italic;
+            font-size: 10px;
+            color: #7f8c8d;
+            padding: 8px;
+            background-color: #fdfdfd;
             border-top: 1px solid #ddd;
         """)
         layout.addWidget(disclaimer)
@@ -219,4 +221,4 @@ class CeneamTab(QWidget):
         if reply.error() == 0:
             with open(path, 'wb') as f:
                 f.write(reply.readAll().data())
-            self.iface.messageBar().pushMessage("Éxito", f"Imagen guardada", level=0)
+            self.iface.messageBar().pushMessage("Éxito", "Imagen guardada", level=0)
