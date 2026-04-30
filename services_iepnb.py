@@ -66,16 +66,26 @@ class ServicesIEPNBTab(QWidget):
 
     def populate_tree(self):
         self.tree.clear()
-        for categoria, servicios in CATALOGO_SERVICIOS.items():
-            parent = QTreeWidgetItem(self.tree)
-            parent.setText(0, categoria)
-            parent.setFlags(parent.flags() & ~Qt.ItemIsSelectable)
-            for nombre, datos in servicios.items():
-                child = QTreeWidgetItem(parent)
-                child.setText(0, nombre)
+        # Llamamos a la función recursiva empezando desde la raíz
+        self._add_items_recursively(self.tree.invisibleRootItem(), CATALOGO_SERVICIOS)
+
+    def _add_items_recursively(self, parent_item, data_dict):
+        for key, value in data_dict.items():
+            item = QTreeWidgetItem(parent_item)
+            item.setText(0, key)
+
+            # Si el valor tiene una "url", es una CAPA FINAL
+            if isinstance(value, dict) and "url" in value:
+                datos = value
+                # Detectamos el icono según sea WMS o WMTS
                 icon_type = '/mIconWms.svg' if datos.get("type", "wms") == "wms" else '/mIconWmts.svg'
-                child.setIcon(0, QgsApplication.getThemeIcon(icon_type))
-                child.setData(0, Qt.UserRole, datos)
+                item.setIcon(0, QgsApplication.getThemeIcon(icon_type))
+                item.setData(0, Qt.UserRole, datos)
+
+            # Si el valor es otro diccionario, es un SUBGRUPO
+            elif isinstance(value, dict):
+                item.setFlags(item.flags() & ~Qt.ItemIsSelectable)  # No se puede añadir al mapa directamente
+                self._add_items_recursively(item, value)  # Bajamos un nivel más
 
     def filter_tree(self, text):
         search_text = text.lower().strip()

@@ -47,7 +47,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
 
  Soporte: buzon-bdatos@miteco.es
 
-version=1.0.3
+version=1.1
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
@@ -55,6 +55,15 @@ repository=https://github.com/SIIB-MITECO/IEPNB-Tools
 homepage=https://iepnb.gob.es/
 tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,wfs,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature
 changelog=
+Versión 1.1:
+    - Rediseño y optimización de la interfaz (UI) para reducir drásticamente el ancho mínimo del panel acoplable.
+    - Implementación de barras de desplazamiento horizontal automáticas en tablas de resultados (Especies y Territorio).
+    - Reorganización de botoneras estratégicas (Identificar) para maximizar el espacio de trabajo.
+    - Mejora de usabilidad: botones de acción reactivos con estados visuales claros (activado/desactivado) y reseteo automático entre consultas.
+    - Integración de una barra de progreso gráfica nativa (QProgressBar) para la exportación de informes PDF.
+    - Solución de renderizado High-DPI implementada para evitar la distorsión de logos institucionales en pantallas de alta resolución o anchos reducidos.
+    - Bloqueo de seguridad añadido en el selector de importación para rechazar archivos CSV no soportados.
+
 Versión 1.0.3:
     - Corrección títulos encabezados
 

@@ -161,7 +161,7 @@ class SpeciesTab(QWidget):
 
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
-        header.setStretchLastSection(True)
+        header.setStretchLastSection(False)
 
         # --- AJUSTE DE ANCHOS MÁS ESTRECHOS ---
         self.table.setColumnWidth(0, 40)  # ID

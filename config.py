@@ -88,13 +88,107 @@ CATALOGO_WMS = {
         "Alertas Mensuales - Noviembre": {"url": f"{BASE_GEOSERVER}/EIKOS_Alertas/wms", "layers": "Alertas_NOV"},
         "Alertas Mensuales - Diciembre": {"url": f"{BASE_GEOSERVER}/EIKOS_Alertas/wms", "layers": "Alertas_DIC"}
     },
-    # --- MITECO - Agua (DGA) ---
+
+    "MITECO - Costas (DGC)": {
+        "Dominio Público Marítimo-Terrestre": {
+            "url": "https://wms.mapama.gob.es/sig/Costas/DPMT",
+            "layers": "AM.CoastalZoneManagementArea"
+        },
+        "Información adicional para la Servidumbre de Protección": {
+            "url": "https://wms.mapama.gob.es/sig/costas/SP",
+            "layers": "AM.CoastalZoneManagementArea"
+        },
+        "DPMT Núcleos excluidos": {
+            "url": "https://wms.mapama.gob.es/sig/Costas/NucleosExcluidos",
+            "layers": "AM.CoastalZoneManagementArea"
+        },
+        "Terrenos íntegramente incluidos en DPMT": {
+            "url": "https://wms.mapama.gob.es/sig/Costas/TerrenosIncluidos",
+            "layers": "AM.CoastalZoneManagementArea"
+        }
+    },
+
     "MITECO - Agua (DGA)": {
         "Ríos (Pfafstetter)": {"url": "https://wms.mapama.gob.es/sig/Agua/RiosCompPfafs?", "layers": "HY.PhysicalWaters.Waterbodies"},
         "Demarcaciones Hidrográficas": {"url": "https://wms.mapama.es/sig/Agua/Demarcaciones?", "layers": "AM.RiverBasinDistrict"},
         "Embalses": {"url": "https://wms.mapama.gob.es/sig/agua/Embalses?", "layers": "HY.PhysicalWaters.Waterbodies"},
         "Presas": {"url": "https://wms.mapama.gob.es/sig/agua/Presas?", "layers": "HY.PhysicalWaters.ManMadeObject"}
     },
+    # --- MITECO - SNCZI (Sistema Nacional de Cartografía de Zonas Inundables) ---
+
+    "MITECO - SNCZI - Inundabilidad": {
+        "Áreas con riesgo potencial significativo de inundación (ARPSI)": {
+            "Áreas con riesgo potencial significativo de inundación (ARPSI)": {
+                "url": "https://wms.mapama.gob.es/sig/agua/ZI_ARPSI?",
+                "layers": "NZ.RiskZone",
+                "type": "wms"
+            }
+        },
+        "Inundaciones Fluviales": {
+            "Peligrosidad (Fluvial)": {
+                "T=10 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.FluvialT10", "type": "wms"},
+                "T=100 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.FluvialT100", "type": "wms"},
+                "T=500 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.FluvialT500", "type": "wms"},
+                "Modelo Digital del Terreno ARPSI": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "EL.GridCoverage", "type": "wms"}
+            },
+            "Riesgo (Fluvial)": {
+                "T=10 años": {
+                    "Población afectada": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPob_10?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Riesgo Actividad Económica": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoAct_10?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Puntos Especial Importancia": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPto_10?", "layers": "NZ.ExposedElement", "type": "wms"},
+                    "Áreas Importancia Medioambiental": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/AreaImp_10?", "layers": "NZ.ExposedElement", "type": "wms"}
+                },
+                "T=100 años": {
+                    "Población afectada": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPob_100?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Riesgo Actividad Económica": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoAct_100?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Puntos Especial Importancia": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPto_100?", "layers": "NZ.ExposedElement", "type": "wms"},
+                    "Áreas Importancia Medioambiental": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/AreaImp_100?", "layers": "NZ.ExposedElement", "type": "wms"}
+                },
+                "T=500 años": {
+                    "Población afectada": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPob_500?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Riesgo Actividad Económica": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoAct_500?", "layers": "NZ.RiskZone", "type": "wms"},
+                    "Puntos Especial Importancia": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/RiesgoPto_500?", "layers": "NZ.ExposedElement", "type": "wms"},
+                    "Áreas Importancia Medioambiental": {"url": "https://wms.mapama.gob.es/sig/Agua/Riesgo/AreaImp_500?", "layers": "NZ.ExposedElement", "type": "wms"}
+                }
+            }
+        },
+        "Inundaciones Marinas": {
+            "Nivel 3 - Peligrosidad (Marino)": {
+                "T=100 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.MarinaT100", "type": "wms"},
+                "T=500 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.MarinaT500", "type": "wms"}
+            },
+            "Riesgo (Marino)": {
+                "T=100 años": {
+                    "Población afectada": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoPob_100?", "layers": "HH.HealthStatisticalData", "type": "wms"},
+                    "Riesgo Actividad Económica": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoAct_100?", "layers": "LU.ExistingLandUse", "type": "wms"},
+                    "Puntos Especial Importancia": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoPto_100?", "layers": "PS.ProtectedSite", "type": "wms"},
+                    "Áreas Importancia Medioambiental": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/AreaImp_100?", "layers": "PS.ProtectedSite", "type": "wms"}
+                },
+                "T=500 años": {
+                    "Población afectada": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoPob_500?", "layers": "HH.HealthStatisticalData", "type": "wms"},
+                    "Riesgo Actividad Económica": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoAct_500?", "layers": "LU.ExistingLandUse", "type": "wms"},
+                    "Puntos Especial Importancia": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/RiesgoPto_500?", "layers": "PS.ProtectedSite", "type": "wms"},
+                    "Áreas Importancia Medioambiental": {"url": "https://wms.mapama.gob.es/sig/Costas/Riesgo/AreaImp_500?", "layers": "PS.ProtectedSite", "type": "wms"}
+                }
+            }
+        }
+    },
+    "MITECO - Calidad y Evaluación Ambiental": {
+        "Red de Estaciones de Calidad del Aire": {
+            "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/RedEstacionesCa",
+            "layers": "EF.EnvironmentalMonitoringFacilities"
+        },
+        "Puntos de Muestreo de Calidad del Aire": {
+            "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/PuntosMuestreoCa",
+            "layers": "EF.EnvironmentalMonitoringFacilities"
+        },
+        "DPMT Área de Modelos de Calidad del Aire": {
+            "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/AreasModelosCa",
+            "layers": "AM.AirQualityManagementZone"
+        },
+    },
+
+
     "PNOA Histórico (IGN)": {
         "PNOA 2023": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2023"},
         "PNOA 2022": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2022"},

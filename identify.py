@@ -23,7 +23,7 @@ from datetime import datetime
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                  QPushButton, QLabel, QTableWidget,
                                  QHeaderView, QFileDialog, QMessageBox,
-                                 QTableWidgetItem, QApplication)
+                                 QTableWidgetItem, QApplication, QProgressBar)
 from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QVariant, QEventLoop, pyqtSignal
 from qgis.PyQt import QtNetwork
 from qgis.PyQt.QtGui import QColor, QTextDocument
@@ -118,19 +118,29 @@ class IdentifyTab(QWidget):
         self.btn_add_all.clicked.connect(self.add_all_results)
         self.btn_intersect = QPushButton("Intersección")
         self.btn_intersect.setIcon(QgsApplication.getThemeIcon('/mAlgorithmIntersect.svg'))
-        self.btn_intersect.setStyleSheet("font-weight: bold; color: #d84315;")
-        self.btn_intersect.setEnabled(False)
+        self.btn_intersect.setStyleSheet("""
+                    QPushButton:enabled { font-weight: bold; color: #d84315; }
+                    QPushButton:disabled { font-weight: bold; color: #9e9e9e; }
+                """)
+        self.btn_intersect.setEnabled(False)  # Arranca desactivado
         self.btn_intersect.clicked.connect(self.run_intersection_analysis)
 
         self.btn_csv = QPushButton("CSV")
-        self.btn_csv.setStyleSheet("font-weight: bold; color: #2e7d32;")
-        self.btn_csv.setEnabled(False)
+        self.btn_csv.setMaximumWidth(40)
+        self.btn_csv.setStyleSheet("""
+                    QPushButton:enabled { font-weight: bold; color: #2e7d32; }
+                    QPushButton:disabled { font-weight: bold; color: #9e9e9e; }
+                """)
+        self.btn_csv.setEnabled(False)  # Arranca desactivado
         self.btn_csv.clicked.connect(self.export_csv)
 
         self.btn_report = QPushButton("Informe PDF")
         self.btn_report.setIcon(QgsApplication.getThemeIcon('/mActionFilePrint.svg'))
-        self.btn_report.setStyleSheet("font-weight: bold; color: #1565c0;")
-        self.btn_report.setEnabled(False)
+        self.btn_report.setStyleSheet("""
+                    QPushButton:enabled { font-weight: bold; color: #1565c0; }
+                    QPushButton:disabled { font-weight: bold; color: #9e9e9e; }
+                """)
+        self.btn_report.setEnabled(False)  # Arranca desactivado
         self.btn_report.clicked.connect(self.generate_report)
         self.btn_clear_map = QPushButton("Borrar")
         self.btn_clear_map.setIcon(QgsApplication.getThemeIcon('/mActionDeleteSelected.svg'))
@@ -147,6 +157,14 @@ class IdentifyTab(QWidget):
         self.status_lbl.setStyleSheet("font-size: 11px; color: #2c3e50; font-weight: bold;")
         self.status_lbl.setWordWrap(True)
         layout.addWidget(self.status_lbl)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet("""
+                QProgressBar { border: 1px solid #bbb; border-radius: 4px; text-align: center; height: 12px; }
+                QProgressBar::chunk { background-color: #2e7d32; width: 10px; }
+            """)
+        self.progress_bar.setVisible(False)
+        layout.addWidget(self.progress_bar)
 
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Capa", "Cantidad", "Acción"])
@@ -227,7 +245,7 @@ class IdentifyTab(QWidget):
     def import_shape(self):
         self.auto_intersect = False
         path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Capa", "",
-                                              "Formatos Vectoriales (*.shp *.geojson *.gpkg *.kml *.kmz *.dxf *.tab *.csv);;Todos los archivos (*.*)")
+                                              "Formatos Vectoriales (*.shp *.geojson *.gpkg *.kml *.kmz *.dxf);;Todos los archivos (*.*)")
         if not path:
             return
 
@@ -314,6 +332,12 @@ class IdentifyTab(QWidget):
         self.table.setRowCount(0)
         self.result_layers = []
         self.current_bbox = bbox
+
+        # ✅ IDEA: Apagamos los botones (se pondrán grises) al arrancar una nueva consulta
+        self.btn_intersect.setEnabled(False)
+        self.btn_csv.setEnabled(False)
+        self.btn_report.setEnabled(False)
+
         self.iface.mainWindow().setCursor(Qt.WaitCursor)
         self.status_lbl.setText("Consultando servicios...")
         self.query_next_service(0)
@@ -420,6 +444,10 @@ class IdentifyTab(QWidget):
         for r in range(self.table.rowCount()):
             data = self.table.item(r, 0).data(Qt.UserRole)
             self.load_group_to_map(data["feature_list"], data["cap"], data["count_str"], data["info"], data["color"])
+
+        # IDEA: Si la tabla tenía resultados y se han añadido, habilitamos el botón explícitamente
+        if self.table.rowCount() > 0:
+            self.btn_intersect.setEnabled(True)
 
     def load_group_to_map(self, feature_list, cap, name_suffix, info, color):
         if not feature_list:
@@ -683,13 +711,13 @@ class IdentifyTab(QWidget):
         info_sp = []
         total_esp = len(esp_ids)
 
-        for index, id_t in enumerate(esp_ids):
-            longitud_barra = 15
-            progreso = (index + 1) / total_esp
-            bloques_llenos = int(longitud_barra * progreso)
-            bloques_vacios = longitud_barra - bloques_llenos
-            barra_txt = f"[{'█' * bloques_llenos}{'░' * bloques_vacios}]"
+        # ✅ Iniciamos la barra gráfica
+        if total_esp > 0:
+            self.progress_bar.setMaximum(total_esp)
+            self.progress_bar.setValue(0)
+            self.progress_bar.setVisible(True)
 
+        for index, id_t in enumerate(esp_ids):
             eta_text = ""
             if index > 0:
                 elapsed = time.time() - start_time
@@ -698,7 +726,9 @@ class IdentifyTab(QWidget):
                 mins, secs = divmod(remaining_seconds, 60)
                 eta_text = f" | Tiempo restante: {mins:02d}:{secs:02d}"
 
-            self.status_lbl.setText(f"Procesando especies {index + 1}/{total_esp} {barra_txt}{eta_text}")
+            # ✅ Actualizamos la etiqueta (solo texto) y movemos la barra gráfica
+            self.status_lbl.setText(f"Procesando especies {index + 1}/{total_esp}{eta_text}")
+            self.progress_bar.setValue(index + 1)
             QApplication.processEvents()
 
             cat = self.fetch_api_sync(f"https://iepnb.gob.es/api/catalogo/v_listapatronespecie?idtaxon=eq.{id_t}")
@@ -889,4 +919,5 @@ class IdentifyTab(QWidget):
         doc.setHtml(html)
         doc.print_(printer)
         self.status_lbl.setText("Informe exportado con éxito.")
+        self.progress_bar.setVisible(False)  # ✅ Ocultamos la barra
         self.iface.mainWindow().setCursor(Qt.ArrowCursor)
