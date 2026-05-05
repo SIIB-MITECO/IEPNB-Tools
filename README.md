@@ -5,10 +5,9 @@
 ### 📺 Vídeo de demostración
 Haz clic en la imagen de abajo para ver el funcionamiento del plugin en YouTube:
 
-[![Ver el vídeo del plugin](https://img.youtube.com/vi/nR94_XZjh38/hqdefault.jpg)](https://www.youtube.com/watch?v=nR94_XZjh38&vq=hd1080)
+[![Ver el vídeo del plugin](https://img.youtube.com/vi/7XWND6h2__E/hqdefault.jpg)](https://www.youtube.com/watch?v=7XWND6h2__E&vq=hd1080)
 
-> **Nota:** En este vídeo de 4 minutos se explica la instalación y las funcionalidades principales.
-
+> **Nota:** En este vídeo se explica la instalación y las funcionalidades principales.
 
 
 ### ✨ Novedades de la Versión 1.1
