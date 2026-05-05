@@ -75,13 +75,13 @@ class TerritoryTab(QWidget):
 
         grid.addWidget(QLabel("Nombre:"), 1, 0)
         self.search_nom = QLineEdit()
-        self.search_nom.setPlaceholderText("Ej: Doñana, Picos, Almonte...")
+        self.search_nom.setPlaceholderText("Ej: Doñana, Laguna, Almonte...")
         self.search_nom.returnPressed.connect(self.start_search)
         grid.addWidget(self.search_nom, 1, 1)
 
         grid.addWidget(QLabel("Tipo/Info:"), 2, 0)
         self.search_inf = QLineEdit()
-        self.search_inf.setPlaceholderText("Ej: Parque Nacional, Madrid, Vía...")
+        self.search_inf.setPlaceholderText("Ej: Parque Natural, ZEPA, Monumento...")
         self.search_inf.returnPressed.connect(self.start_search)
         grid.addWidget(self.search_inf, 2, 1)
 
