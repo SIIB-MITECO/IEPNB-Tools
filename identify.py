@@ -18,12 +18,14 @@ import tempfile
 import uuid
 import csv
 from datetime import datetime
+import unicodedata
 
 # --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                  QPushButton, QLabel, QTableWidget,
                                  QHeaderView, QFileDialog, QMessageBox,
-                                 QTableWidgetItem, QApplication, QProgressBar)
+                                 QTableWidgetItem, QApplication, QProgressBar,
+                                 QDialog, QLineEdit)
 from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QVariant, QEventLoop, pyqtSignal
 from qgis.PyQt import QtNetwork
 from qgis.PyQt.QtGui import QColor, QTextDocument
@@ -38,7 +40,7 @@ from qgis.core import (QgsWkbTypes, QgsPointXY, QgsGeometry,
                        QgsSingleSymbolRenderer, QgsField)
 from qgis.gui import QgsMapTool, QgsMapToolEmitPoint, QgsRubberBand
 
-from .config import CONFIG_IDENTIFY as CONFIG_SERVICIOS
+from .config import CONFIG_IDENTIFY as CONFIG_SERVICIOS, CONFIG_TERRITORY
 
 
 class ManualPolygonTool(QgsMapTool):
@@ -73,7 +75,196 @@ class ManualPolygonTool(QgsMapTool):
         super().deactivate()
 
 
+class DialogoBusquedaTTMM(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Buscar Término Municipal (TTMM)")
+        self.resize(500, 400)
+        self.network_manager = QgsNetworkAccessManager.instance()
+        self.srv_ttmm = next((s for s in CONFIG_TERRITORY if s["id"] == "TTMM"), None)
+
+        # NUEVO: Aquí guardaremos la geometría seleccionada en lugar de usar señales
+        self.geom_seleccionada = None
+
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+
+        h_layout = QHBoxLayout()
+        self.input_nom = QLineEdit()
+        self.input_nom.setPlaceholderText("Ej: Almonte, Valencia, Mérida...")
+        self.input_nom.returnPressed.connect(self.buscar)
+        self.btn_buscar = QPushButton("Buscar")
+        self.btn_buscar.setIcon(QgsApplication.getThemeIcon('/mActionSearch.svg'))
+        self.btn_buscar.clicked.connect(self.buscar)
+        h_layout.addWidget(QLabel("Municipio:"))
+        h_layout.addWidget(self.input_nom)
+        h_layout.addWidget(self.btn_buscar)
+        layout.addLayout(h_layout)
+
+        self.lbl_estado = QLabel("Escribe al menos 3 letras para buscar.")
+        self.lbl_estado.setStyleSheet("color: #2c3e50; font-style: italic;")
+        layout.addWidget(self.lbl_estado)
+
+        self.tabla = QTableWidget(0, 3)
+        self.tabla.setHorizontalHeaderLabels(["Municipio", "Provincia", "Acción"])
+        self.tabla.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        layout.addWidget(self.tabla)
+
+    def normalize(self, t):
+        if not t:
+            return ""
+        return ''.join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower()
+
+    def buscar(self):
+        if not self.srv_ttmm:
+            self.lbl_estado.setText("Error: No se encontró la configuración de TTMM.")
+            return
+
+        nom = self.input_nom.text().strip()
+        if len(nom) < 3:
+            self.lbl_estado.setText("⚠️ Escribe al menos 3 letras.")
+            return
+
+        self.tabla.setRowCount(0)
+        self.lbl_estado.setText("Buscando en servidor...")
+
+        # Bloqueamos el cursor global para que el usuario espere
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+
+        w_nom = nom
+        for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ':
+            w_nom = w_nom.replace(v, '_')
+
+        cql = f"{self.srv_ttmm['col_nom']} ILIKE '%{w_nom}%'"
+
+        url = QUrl(self.srv_ttmm["url"])
+        q = QUrlQuery()
+        q.addQueryItem("service", "WFS")
+        q.addQueryItem("version", "1.0.0")
+        q.addQueryItem("request", "GetFeature")
+        q.addQueryItem("typeName", self.srv_ttmm["layer"])
+        q.addQueryItem("outputFormat", "application/json")
+        q.addQueryItem("srsName", "EPSG:4326")
+        q.addQueryItem("cql_filter", cql)
+        url.setQuery(q)
+
+        # --- INICIO PETICIÓN SÍNCRONA SEgura ---
+        loop = QEventLoop()
+        reply = self.network_manager.get(QtNetwork.QNetworkRequest(url))
+        reply.finished.connect(loop.quit)
+        loop.exec_()  # QGIS se pausa aquí hasta recibir la respuesta completa
+        # --- FIN PETICIÓN SÍNCRONA ---
+
+        QApplication.restoreOverrideCursor()
+
+        if reply.error() != QtNetwork.QNetworkReply.NoError:
+            self.lbl_estado.setText("Error de red al consultar el WFS.")
+            reply.deleteLater()
+            return
+
+        try:
+            raw_data = reply.readAll().data()
+            if not raw_data:
+                self.lbl_estado.setText("El servidor no ha devuelto datos.")
+                reply.deleteLater()
+                return
+
+            data = json.loads(raw_data)
+            features = data.get("features", [])
+
+            nom_clean = self.normalize(nom)
+            resultados = {}
+
+            for f in features:
+                props = f["properties"]
+                val_nom = props.get(self.srv_ttmm["col_nom"], "S/N")
+                val_prov = props.get("nut3_nom", "-")
+
+                if nom_clean in self.normalize(val_nom):
+                    clave = (val_nom, val_prov)
+                    if clave not in resultados:
+                        resultados[clave] = []
+                    resultados[clave].append(f)
+
+            if not resultados:
+                self.lbl_estado.setText("No se encontraron resultados exactos.")
+            else:
+                self.lbl_estado.setText(f"Encontrados {len(resultados)} resultados.")
+                for (n, p), feats in resultados.items():
+                    self.agregar_fila(n, p, feats)
+
+        except Exception as e:
+            self.lbl_estado.setText(f"Error procesando datos: {str(e)}")
+        finally:
+            reply.deleteLater()
+
+    def agregar_fila(self, nom, prov, features):
+        row = self.tabla.rowCount()
+        self.tabla.insertRow(row)
+        self.tabla.setItem(row, 0, QTableWidgetItem(nom))
+        self.tabla.setItem(row, 1, QTableWidgetItem(prov))
+
+        btn = QPushButton("Usar Área")
+        btn.setStyleSheet("font-weight: bold; color: #2e7d32;")
+
+        # NUEVO: Arreglo del bug del lambda pasando f=features
+        btn.clicked.connect(lambda checked=False, f=features: self.seleccionar_municipio(f))
+
+        self.tabla.setCellWidget(row, 2, btn)
+
+    def seleccionar_municipio(self, features):
+        geoms = []
+        for f in features:
+            geom_dict = f.get("geometry")
+            if geom_dict:
+                g = QgsJsonUtils.geometryFromGeoJson(json.dumps(geom_dict))
+                if g and not g.isNull():
+                    geoms.append(g)
+
+        if geoms:
+            # En lugar de emitir señal, guardamos la geometría unida en la variable
+            self.geom_seleccionada = QgsGeometry.unaryUnion(geoms)
+            self.accept()  # Cierra el diálogo
+
+
 class IdentifyTab(QWidget):
+    def abrir_buscador_ttmm(self):
+        # Desactivamos herramientas manuales si estaban pulsadas
+        self.btn_point.setChecked(False)
+        self.btn_poly.setChecked(False)
+        self.iface.mapCanvas().unsetMapTool(self.point_tool)
+        self.iface.mapCanvas().unsetMapTool(self.poly_tool)
+
+        # Instanciamos y abrimos el diálogo de forma segura
+        dialogo = DialogoBusquedaTTMM(self)
+
+        # NUEVO: Esperamos a que el diálogo se cierre (Aceptar)
+        if dialogo.exec_():
+            # Comprobamos si el usuario llegó a seleccionar un municipio
+            if dialogo.geom_seleccionada:
+                # Extraemos la geometría a formato texto (WKT) de forma segura
+                wkt_geom = dialogo.geom_seleccionada.asWkt()
+                self.procesar_geometria_ttmm(wkt_geom)
+
+    def procesar_geometria_ttmm(self, wkt_geom):
+        # Reconstruimos la geometría desde el texto seguro
+        geom_4326 = QgsGeometry.fromWkt(wkt_geom)
+
+        canvas_crs = self.iface.mapCanvas().mapSettings().destinationCrs()
+        wgs84_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+
+        if canvas_crs != wgs84_crs:
+            xform = QgsCoordinateTransform(wgs84_crs, canvas_crs, QgsProject.instance())
+            geom_transformada = QgsGeometry(geom_4326)
+            geom_transformada.transform(xform)
+        else:
+            geom_transformada = geom_4326
+
+        self.status_lbl.setText("Término Municipal establecido como zona de estudio.")
+        self.process_geometry(geom_transformada)
+
     def __init__(self, iface):
         super().__init__()
         self.iface = iface
@@ -99,6 +290,9 @@ class IdentifyTab(QWidget):
         self.btn_poly.setIcon(QgsApplication.getThemeIcon('/mActionCapturePolygon.svg'))
         self.btn_poly.setCheckable(True)
         self.btn_poly.clicked.connect(self.activate_poly_tool)
+        self.btn_ttmm = QPushButton("TTMM")
+        self.btn_ttmm.setIcon(QgsApplication.getThemeIcon('/mActionSelectPolygon.svg'))
+        self.btn_ttmm.clicked.connect(self.abrir_buscador_ttmm)
         self.btn_import = QPushButton("Importar")
         self.btn_import.setIcon(QgsApplication.getThemeIcon('/mActionAddOgrLayer.svg'))
         self.btn_import.clicked.connect(self.import_shape)
@@ -107,6 +301,7 @@ class IdentifyTab(QWidget):
         self.btn_clear_sel.clicked.connect(self.clear_selection)
         tools_layout.addWidget(self.btn_point)
         tools_layout.addWidget(self.btn_poly)
+        tools_layout.addWidget(self.btn_ttmm)
         tools_layout.addWidget(self.btn_import)
         tools_layout.addWidget(self.btn_clear_sel)
         layout.addLayout(tools_layout)
