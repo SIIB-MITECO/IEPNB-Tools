@@ -1,4 +1,4 @@
-# IEPNB - Tools (v1.1): Manual Integral de Usuario 🌍
+# IEPNB - Tools (v1.1.3): Manual Integral de Usuario 🌍
 
 **IEPNB - Tools** es el complemento oficial para **QGIS** diseñado para la gestión, visualización y análisis de la información geográfica del **Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB)**. Este plugin integra en una única interfaz todas las capacidades de consulta de la infraestructura de datos del Ministerio para la Transición Ecológica y el Reto Demográfico (MITECO).
 
@@ -25,7 +25,7 @@ Haz clic en la imagen de abajo para ver el funcionamiento del plugin en YouTube:
 
 ---
 
-### ✨ Novedades y Arquitectura de la Versión 1.1
+### ✨ Novedades y Arquitectura de la Versión 1.1.3
 * **Compatibilidad Estructural:** Código refactorizado para garantizar compatibilidad total con el actual ecosistema QGIS 3.x y preparado ('Future-Proof') para el salto a QGIS 4.x.
 * **Interfaz Optimizada:** Rediseño completo del panel para ocupar el mínimo espacio horizontal mediante barras dinámicas. Implementación High-DPI para evitar la distorsión de logos institucionales en pantallas de alta resolución.
 * **Rendimiento Asíncrono (Anti-Congelación):** Nuevo sistema de carga de imágenes en segundo plano (`ImageLoader`) para los catálogos fotográficos, garantizando que la interfaz de QGIS nunca se congele durante las consultas web.
