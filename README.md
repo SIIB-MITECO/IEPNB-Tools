@@ -1,4 +1,4 @@
-# IEPNB - Tools (v1.1): Manual Integral de Usuario 🌍
+# IEPNB - Tools (v1.1.3): Manual Integral de Usuario 🌍
 
 **IEPNB - Tools** es el complemento oficial para **QGIS** diseñado para la gestión, visualización y análisis de la información geográfica del **Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB)**. Este plugin integra en una única interfaz todas las capacidades de consulta de la infraestructura de datos del Ministerio para la Transición Ecológica y el Reto Demográfico (MITECO).
 
@@ -10,7 +10,7 @@ Haz clic en la imagen de abajo para ver el funcionamiento del plugin en YouTube:
 > **Nota:** En este vídeo se explica la instalación y las funcionalidades principales.
 
 
-### ✨ Novedades de la Versión 1.1
+### ✨ Novedades de la Versión 1.1.3
 * **Interfaz Optimizada:** Rediseño completo del panel para ocupar el mínimo espacio horizontal, incorporando barras de desplazamiento dinámicas. Solución de renderizado High-DPI implementada para evitar la distorsión de logos institucionales en pantallas de alta resolución o anchos reducidos.
 * **Experiencia de Usuario (UX):** Nuevas barras de progreso gráficas nativas (QProgressBar), cursores de espera y nuevos avisos dinámicos en la barra de mensajes (QgsMessageBar) para la gestión de cargas masivas de servicios WMS. Reorganización de botoneras estratégicas y botones de acción reactivos con estados visuales claros (activado/desactivado).
 * **Informes Avanzados:** Integración de una barra de progreso para la exportación de informes PDF. Bloqueo de seguridad añadido en el selector de importación para rechazar archivos CSV no soportados.
@@ -26,7 +26,6 @@ En la barra inferior encontramos estos 6 botones que representan un amplio espec
 * **Sistema de Información de Redes (Agua):** Red hidrográfica, embalses y demarcaciones.
 * **Costas:** Dominio Público Marítimo-Terrestre y servidumbres.
 * **CEA:** Calidad y Evaluación Ambiental.
-* **Reto Demográfico:** Acceso al Registro de Aguas.
 
 ### Herramientas de Contexto
 * **Cartografía Base:** Carga instantánea de la ortofoto de máxima actualidad del PNOA y los límites administrativos oficiales. Se colocan automáticamente al fondo del mapa para no interferir con el análisis.
