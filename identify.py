@@ -561,16 +561,29 @@ class IdentifyTab(QWidget):
 
         srv = CONFIG_SERVICIOS[index]
         QApplication.processEvents()
-        url = QUrl(srv["url"])
+
+        url = QUrl()
         query = QUrlQuery()
-        query.addQueryItem("service", "WFS")
-        query.addQueryItem("version", "1.0.0")
-        query.addQueryItem("request", "GetFeature")
-        query.addQueryItem("typeName", srv["layer"])
-        query.addQueryItem("outputFormat", "application/json")
-        query.addQueryItem("bbox", f"{self.current_bbox},EPSG:4326")
-        query.addQueryItem("srsName", "EPSG:4326")
+
+        # --- BIFURCACIÓN SEGÚN EL TIPO DE SERVICIO ---
+        if srv.get("type") == "OAPIF":
+            # Formato moderno OGC API Features (MAPAMA)
+            url = QUrl(f"{srv['url']}/items")
+            query.addQueryItem("f", "json")
+            query.addQueryItem("bbox", f"{self.current_bbox}")
+        else:
+            # Formato WFS Tradicional (Tus Geoserver)
+            url = QUrl(srv["url"])
+            query.addQueryItem("service", "WFS")
+            query.addQueryItem("version", "1.0.0")
+            query.addQueryItem("request", "GetFeature")
+            query.addQueryItem("typeName", srv["layer"])
+            query.addQueryItem("outputFormat", "application/json")
+            query.addQueryItem("bbox", f"{self.current_bbox},EPSG:4326")
+            query.addQueryItem("srsName", "EPSG:4326")
+
         url.setQuery(query)
+
         reply = self.network_manager.get(QtNetwork.QNetworkRequest(url))
         reply.finished.connect(lambda: self.process_wfs_response(reply, index))
 
@@ -880,6 +893,9 @@ class IdentifyTab(QWidget):
             "RAMSAR": {"fig": None, "nom": "nombre"},
             "ZEPIM": {"fig": None, "nom": "nombre"},
             "Geoparque": {"fig": None, "nom": "nombre"},
+            "Masas Agua Sub.": {"fig": "cod_masa", "nom": "nom_masa"},
+            "Masas Agua Sup. (Líneas)": {"fig": "cod_masa", "nom": "nombre_masa"},
+            "Masas Agua Sup. (Polígonos)": {"fig": "cod_masa", "nom": "nombre_masa"},
         }
 
         esp_ids = set()
@@ -1023,10 +1039,10 @@ class IdentifyTab(QWidget):
                     <h3>1. Intersecciones IEPNB Detectadas</h3>
             <table border="1" cellspacing="0" cellpadding="5" width="98%" style="margin-left: 1%;">
                 <tr>
-                    <th width="20%">Capa</th>
-                    <th width="20%">Figura</th>
-                    <th width="24%">Nombre</th>
-                    <th width="18%" style='text-align:center;'>Resultados INT</th>
+                    <th width="20%" style='text-align:center;'>Capa</th>
+                    <th width="24%" style='text-align:center;'>Figura</th>
+                    <th width="24%" style='text-align:center;'>Nombre</th>
+                    <th width="16%" style='text-align:center;'>Resultados INT</th>
                     <th width="18%" style='text-align:center;'>% Ocupación</th>
                 </tr>"""
 
@@ -1070,11 +1086,11 @@ class IdentifyTab(QWidget):
             html += """</table><h3>2. Riqueza de Especies (Clasificación Taxonómica)</h3>
                     <table border="1" cellspacing="0" cellpadding="5" width="98%" style="margin-left: 1%;">
                         <tr>
-                            <th width="18%" style='text-align:center;'>Imagen</th>
+                            <th width="22%" style='text-align:center;'>Imagen</th>
                             <th width="12%" style='text-align:center;'>Taxón ID</th>
-                            <th width="25%">Nombre Común</th>
-                            <th width="25%">Nombre Científico</th>
-                            <th width="20%">Grupo</th>
+                            <th width="25%" style='text-align:center;'>Nombre Común</th>
+                            <th width="25%" style='text-align:center;'>Nombre Científico</th>
+                            <th width="16%" style='text-align:center;'>Grupo</th>
                         </tr>"""
             for s in info_sp:
                 link = f"https://iepnb.gob.es/areas-tematicas/especies-silvestres/eidos/{s['id']}"

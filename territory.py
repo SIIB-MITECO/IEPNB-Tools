@@ -177,8 +177,8 @@ class TerritoryTab(QWidget):
         self.status_lbl.setText(f"🔎 Consultando {srv['id']}...")
         QApplication.processEvents()
 
-        # Identificar qué columna usar para el filtro de información en el WFS
-        col_busqueda_inf = srv.get('col_inf')  # Valor por defecto
+        # --- Identificar columnas de búsqueda ---
+        col_busqueda_inf = srv.get('col_inf')
         if srv["id"] == "TTMM":
             col_busqueda_inf = "nut3_nom"
         elif srv["id"] in ["Provincia", "CCAA"]:
@@ -186,11 +186,11 @@ class TerritoryTab(QWidget):
         elif srv["id"] in self.FIELD_MAP and self.FIELD_MAP[srv["id"]]["fig"]:
             col_busqueda_inf = self.FIELD_MAP[srv["id"]]["fig"]
 
-        # Identificar columna para el nombre
-        col_busqueda_nom = srv["col_nom"]
+        col_busqueda_nom = srv.get("col_nom")
         if srv["id"] in self.FIELD_MAP:
             col_busqueda_nom = self.FIELD_MAP[srv["id"]]["nom"]
 
+        # --- 1. CONSTRUCCIÓN DE LOS FILTROS DE TEXTO (COMÚN PARA TODOS) ---
         filtros = []
         if len(nom_orig) >= 3:
             w_nom = nom_orig
@@ -206,15 +206,40 @@ class TerritoryTab(QWidget):
 
         cql = " AND ".join(filtros)
 
-        url = QUrl(srv["url"])
+        # --- 2. CONSTRUCCIÓN DE LA URL SEGÚN TIPO DE SERVICIO ---
+        url = QUrl()
         q = QUrlQuery()
-        q.addQueryItem("service", "WFS")
-        q.addQueryItem("version", "1.0.0")
-        q.addQueryItem("request", "GetFeature")
-        q.addQueryItem("typeName", srv["layer"])
-        q.addQueryItem("outputFormat", "application/json")
-        q.addQueryItem("srsName", "EPSG:4326")
-        q.addQueryItem("cql_filter", cql)
+
+        if srv.get("type") == "OAPIF":
+            # OGC API Features (MAPAMA)
+            url = QUrl(f"{srv['url']}/items")
+            q.addQueryItem("f", "json")
+
+            if cql:
+                # Enviamos el filtro al servidor para no descargar toda España
+                q.addQueryItem("filter", cql)
+                q.addQueryItem("filter-lang", "cql-text")
+            else:
+                # Límite de seguridad por si hacen una búsqueda vacía
+                q.addQueryItem("limit", "50")
+
+        else:
+            # WFS Tradicional (Tus Geoservers)
+            url = QUrl(srv["url"])
+            q.addQueryItem("service", "WFS")
+            q.addQueryItem("version", "1.0.0")
+            q.addQueryItem("request", "GetFeature")
+
+            layer_name = srv.get("layer")
+            if layer_name:
+                q.addQueryItem("typeName", layer_name)
+
+            q.addQueryItem("outputFormat", "application/json")
+            q.addQueryItem("srsName", "EPSG:4326")
+
+            if cql:
+                q.addQueryItem("cql_filter", cql)
+
         url.setQuery(q)
 
         reply = self.network_manager.get(QtNetwork.QNetworkRequest(url))

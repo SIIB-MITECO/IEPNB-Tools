@@ -1,16 +1,17 @@
 import os
 from functools import partial
 
+
 # --- COMPATIBILIDAD QGIS 3 Y 4 ---
 from qgis.PyQt.QtCore import Qt, QUrl, QSize
 from qgis.PyQt.QtGui import QIcon, QPixmap, QDesktopServices
 from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
                                  QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
-# ---------------------------------
+
 
 from qgis.gui import QgsMapTool
 from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform, QgsRasterLayer)
+                       QgsCoordinateTransform, QgsRasterLayer, QgsRectangle)
 
 from .identify import IdentifyTab
 from .territory import TerritoryTab
@@ -45,15 +46,15 @@ class IepnbTools:
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v1.1.0", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v1.1.3", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v1.1.0", self.action)
+        self.iface.addPluginToMenu("&IEPNB - Tools v1.1.3", self.action)
 
     def unload(self):
         if self.action:
             self.iface.removeToolBarIcon(self.action)
-            self.iface.removePluginMenu("&IEPNB - Tools v1.1.0", self.action)
+            self.iface.removePluginMenu("&IEPNB - Tools v1.1.3", self.action)
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
@@ -63,7 +64,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v1.1.0", self.iface.mainWindow())
+            self.dockwidget = QDockWidget("IEPNB - Tools v1.1.3", self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
 
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
@@ -85,7 +86,7 @@ class IepnbTools:
                 icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.SmoothTransformation))
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v1.1.0")
+            title_lbl = QLabel("IEPNB - Tools v1.1.3")
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
@@ -111,7 +112,7 @@ class IepnbTools:
             footer_layout.setSpacing(15)
 
             buttons_row = QHBoxLayout()
-            buttons_row.setSpacing(2)  # Espaciado un poco más estrecho para que quepa todo bien
+            buttons_row.setSpacing(7)  # Espaciado un poco más estrecho para que quepa todo bien
             buttons_row.setAlignment(Qt.AlignCenter)
 
             btn_style = """
@@ -129,7 +130,6 @@ class IepnbTools:
                 ("SIR.png", "Sistema de Información de Redes - DGA", "MITECO - Agua (DGA)", "Ríos (Pfafstetter)"),
                 ("COSTAS.png", "Costas", "MITECO - Costas (DGC)", "Dominio Público Marítimo-Terrestre"),
                 ("CEA.png", "Calidad y Evaluación Ambiental", "MITECO - Calidad y Evaluación Ambiental", "Red de Estaciones de Calidad del Aire"),
-                ("RD.png", "Reto Demográfico", "MITECO - Agua (DGA)", "Registro de Aguas"),
                 ("mb.png", "Cartografía Base", "MAPA_BASE", None),
                 ("gsv.png", "Street View", "GSV", None)
             ]
@@ -221,7 +221,6 @@ class IepnbTools:
         root = project.layerTreeRoot()
         group = root.findGroup("Cartografía Base") or root.addGroup("Cartografía Base")
 
-        # Ahora la comprobación sí encontrará el nombre correcto
         if layer_pnoa.isValid() and not project.mapLayersByName(nombre_pnoa):
             project.addMapLayer(layer_pnoa, False)
             group.addLayer(layer_pnoa)
@@ -229,7 +228,22 @@ class IepnbTools:
         if layer_ua.isValid() and not project.mapLayersByName(nombre_ua):
             project.addMapLayer(layer_ua, False)
             group.insertLayer(0, layer_ua)
-            self.iface.mapCanvas().setExtent(layer_ua.extent())
+
+            # --- SOLUCIÓN: Zoom dinámico e independiente del WMS ---
+
+            # 1. Definimos un rectángulo que engloba España (Península, Baleares y Canarias) en WGS84
+            rect_espana_wgs84 = QgsRectangle(-18.5, 27.5, 4.5, 44.0)
+
+            # 2. Obtenemos el CRS de origen (WGS84) y el CRS actual del Canvas del usuario
+            crs_origen = QgsCoordinateReferenceSystem("EPSG:4326")
+            crs_destino = self.iface.mapCanvas().mapSettings().destinationCrs()
+
+            # 3. Calculamos la transformación
+            transformacion = QgsCoordinateTransform(crs_origen, crs_destino, project)
+
+            # 4. Transformamos el rectángulo al CRS del Canvas y aplicamos el zoom
+            rect_transformado = transformacion.transformBoundingBox(rect_espana_wgs84)
+            self.iface.mapCanvas().setExtent(rect_transformado)
             self.iface.mapCanvas().refresh()
 
     def activate_gsv(self):
@@ -277,7 +291,16 @@ class IepnbTools:
             if isinstance(content, dict) and "url" in content:
                 url, layers = content["url"], content["layers"]
                 srv_type = content.get("type", "wms")
-                uri = f"layers={layers}&styles=&url={url}" if srv_type == "wmts" else f"contextualWMSLegend=0&crs=EPSG:3857&format=image/png&layers={layers}&styles=&url={url}"
+
+                # 1. Recuperamos el estilo del diccionario (si lo tiene)
+                style_name = content.get("styles", "")
+
+                # 2. Construimos la URI incorporando styles, dpiMode y featureCount
+                if srv_type == "wmts":
+                    uri = f"layers={layers}&styles={style_name}&url={url}"
+                else:
+                    uri = f"contextualWMSLegend=0&crs=EPSG:3857&dpiMode=7&featureCount=10&format=image/png&layers={layers}&styles={style_name}&url={url}"
+
                 lyr = QgsRasterLayer(uri, name, "wms")
                 if lyr.isValid():
                     if any(x in name for x in ["SNCZI", "Riesgo", "Peligrosidad", "Inundación"]):

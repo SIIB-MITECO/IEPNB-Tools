@@ -32,7 +32,35 @@ CONFIG_IDENTIFY = [
     {"id": "OSPAR", "url": f"{BASE_GEOSERVER}/convenio_internacional/wfs", "layer": "convenio_internacional:OSPAR", "col_nom": "nombre", "col_inf": "nombre", "color": QColor(21, 101, 192)},
     {"id": "RAMSAR", "url": f"{BASE_GEOSERVER}/convenio_internacional/wfs", "layer": "convenio_internacional:RAMSAR", "col_nom": "nombre", "col_inf": "nombre", "color": QColor(0, 150, 136)},
     {"id": "ZEPIM", "url": f"{BASE_GEOSERVER}/convenio_internacional/wfs", "layer": "convenio_internacional:ZEPIM", "col_nom": "nombre", "col_inf": "nombre", "color": QColor(173, 20, 87)},
-    {"id": "Geoparque", "url": f"{BASE_GEOSERVER}/convenio_internacional/wfs", "layer": "convenio_internacional:GEOPARQUE", "col_nom": "nombre", "col_inf": "nombre", "color": QColor(230, 81, 0)}
+    {"id": "Geoparque", "url": f"{BASE_GEOSERVER}/convenio_internacional/wfs", "layer": "convenio_internacional:GEOPARQUE", "col_nom": "nombre", "col_inf": "nombre", "color": QColor(230, 81, 0)},
+
+    {
+        "id": "Masas Agua Sub.",
+        "url": "https://wmts.mapama.gob.es/sig-api/ogc/features/v1/collections/agua:masas_aguasub_2027",
+        "type": "OAPIF",
+        "layer": None,
+        "col_nom": "nom_masa",
+        "col_inf": "cod_masa",
+        "color": QColor(33, 150, 243)
+    },
+    {
+        "id": "Masas Agua Sup. (Líneas)",
+        "url": "https://wmts.mapama.gob.es/sig-api/ogc/features/v1/collections/agua:masas_aguaspf_2027_l",
+        "type": "OAPIF",
+        "layer": None,
+        "col_nom": "nombre_masa",
+        "col_inf": "cod_masa",
+        "color": QColor(3, 169, 244)
+    },
+    {
+        "id": "Masas Agua Sup. (Polígonos)",
+        "url": "https://wmts.mapama.gob.es/sig-api/ogc/features/v1/collections/agua:masas_aguaspf_2027_a",
+        "type": "OAPIF",
+        "layer": None,
+        "col_nom": "nombre_masa",
+        "col_inf": "cod_masa",
+        "color": QColor(0, 188, 212)
+    }
 ]
 
 # --- CONFIGURACIÓN PARA TERRITORIO (territory.py) ---
@@ -92,28 +120,49 @@ CATALOGO_WMS = {
     "MITECO - Costas (DGC)": {
         "Dominio Público Marítimo-Terrestre": {
             "url": "https://wms.mapama.gob.es/sig/Costas/DPMT",
-            "layers": "AM.CoastalZoneManagementArea"
+            "layers": "AM.CoastalZoneManagementArea",
+            "styles": "costas_dpmt"
         },
         "Información adicional para la Servidumbre de Protección": {
             "url": "https://wms.mapama.gob.es/sig/costas/SP",
-            "layers": "AM.CoastalZoneManagementArea"
+            "layers": "AM.CoastalZoneManagementArea",
+            "styles": "costas_servidumbre_proteccion"
         },
         "DPMT Núcleos excluidos": {
             "url": "https://wms.mapama.gob.es/sig/Costas/NucleosExcluidos",
-            "layers": "AM.CoastalZoneManagementArea"
+            "layers": "AM.CoastalZoneManagementArea",
+            "styles": "costas_nucleos_excluidos"
         },
         "Terrenos íntegramente incluidos en DPMT": {
             "url": "https://wms.mapama.gob.es/sig/Costas/TerrenosIncluidos",
-            "layers": "AM.CoastalZoneManagementArea"
+            "layers": "AM.CoastalZoneManagementArea",
+            "styles": "Costas_terrenos_incluidos"
         }
     },
 
     "MITECO - Agua (DGA)": {
-        "Ríos (Pfafstetter)": {"url": "https://wms.mapama.gob.es/sig/Agua/RiosCompPfafs?", "layers": "HY.PhysicalWaters.Waterbodies"},
-        "Demarcaciones Hidrográficas": {"url": "https://wms.mapama.es/sig/Agua/Demarcaciones?", "layers": "AM.RiverBasinDistrict"},
-        "Embalses": {"url": "https://wms.mapama.gob.es/sig/agua/Embalses?", "layers": "HY.PhysicalWaters.Waterbodies"},
-        "Presas": {"url": "https://wms.mapama.gob.es/sig/agua/Presas?", "layers": "HY.PhysicalWaters.ManMadeObject"}
+        "Ríos (Pfafstetter)": {
+            "url": "https://wms.mapama.gob.es/sig/Agua/RiosCompPfafs?",
+            "layers": "HY.PhysicalWaters.Waterbodies",
+            "styles": "rios_comp_pfaf"
+        },
+        "Demarcaciones Hidrográficas": {
+            "url": "https://wms.mapama.es/sig/Agua/Demarcaciones?",
+            "layers": "AM.RiverBasinDistrict",
+            "styles": "Agua_Demarcaciones1"
+        },
+        "Embalses": {
+            "url": "https://wms.mapama.gob.es/sig/agua/Embalses?",
+            "layers": "HY.PhysicalWaters.Waterbodies",
+            "styles": "Agua_Embalses_eGISPE"
+        },
+        "Presas": {
+            "url": "https://wms.mapama.gob.es/sig/agua/Presas?",
+            "layers": "HY.PhysicalWaters.ManMadeObject",
+            "styles": "agua_presas_egispe"
+        }
     },
+
     # --- MITECO - SNCZI (Sistema Nacional de Cartografía de Zonas Inundables) ---
 
     "MITECO - SNCZI - Inundabilidad": {
@@ -153,7 +202,7 @@ CATALOGO_WMS = {
             }
         },
         "Inundaciones Marinas": {
-            "Nivel 3 - Peligrosidad (Marino)": {
+            "Peligrosidad (Marino)": {
                 "T=100 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.MarinaT100", "type": "wms"},
                 "T=500 años": {"url": "https://servicios.idee.es/wms-inspire/riesgos-naturales/inundaciones?", "layers": "NZ.Flood.MarinaT500", "type": "wms"}
             },
@@ -176,16 +225,54 @@ CATALOGO_WMS = {
     "MITECO - Calidad y Evaluación Ambiental": {
         "Red de Estaciones de Calidad del Aire": {
             "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/RedEstacionesCa",
-            "layers": "EF.EnvironmentalMonitoringFacilities"
+            "layers": "EF.EnvironmentalMonitoringFacilities",
+            "styles": "CalidadAire_ca_red_estaciones",
+            "type": "wms"
         },
         "Puntos de Muestreo de Calidad del Aire": {
             "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/PuntosMuestreoCa",
-            "layers": "EF.EnvironmentalMonitoringFacilities"
+            "layers": "EF.EnvironmentalMonitoringFacilities",
+            "styles": "CalidadAire_ca_red_ptos_muestreo",
+            "type": "wms"
         },
         "DPMT Área de Modelos de Calidad del Aire": {
             "url": "https://wms.mapama.gob.es/sig/EvaluacionAmbiental/CalidadAire/AreasModelosCa",
-            "layers": "AM.AirQualityManagementZone"
+            "layers": "AM.AirQualityManagementZone",
+            "styles": "CalidadAire_ca_areas_modelo",
+            "type": "wms"
         },
+        "Índice de sensibilidad ambiental. Energía eólica": {
+            "url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_energia_eolica?",
+            "layers": "ea_energia_eolica",
+            "type": "wms"
+        },
+        "Índice de sensibilidad ambiental. Energía fotovoltaica": {
+            "url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_energia_fotovoltaica?",
+            "layers": "ea_energia_fotovoltaica",
+            "type": "wms"
+        },
+        "Mapa de sensibilidad ambiental. Energía eólica": {
+            "url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_clasificacion_energia_eolica?",
+            "layers": "ea_clasificacion_energia_eolica",
+            "type": "wms"
+        },
+        "Mapa de sensibilidad ambiental. Energía fotovoltaica": {
+            "url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_clasificacion_energia_fotovoltaica?",
+            "layers": "ea_clasificacion_energia_fotovoltaica",
+            "type": "wms"
+        }
+    },
+
+    "MITECO - LULUCF Histórico": {
+        "Mapa LULUCF. Año 2021": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2021?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2018": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2018?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2015": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2015?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2012": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2012?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2009": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2009?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2006": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2006?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 2000": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_2000?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 1990": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_1990?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"},
+        "Mapa LULUCF. Año 1970": {"url": "https://wms.mapama.gob.es/sig/evaluacionambiental/ea_lulucf_1970?", "layers": "LC.LandCoverRaster", "styles": "ea_lulucf"}
     },
 
 

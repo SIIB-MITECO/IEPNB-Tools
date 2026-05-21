@@ -124,9 +124,20 @@ class ServicesIEPNBTab(QWidget):
             return
 
         data = item.data(0, Qt.UserRole)
-        self.load_service_layer(data["url"], data["layers"], item.text(0), data.get("type", "wms"))
 
-    def load_service_layer(self, url, layer_name, title, srv_type):
+        # 1. Extraemos el estilo de config.py si existe (si no, queda vacío "")
+        style_name = data.get("styles", "")
+
+        # 2. Se lo pasamos como quinto parámetro a la función de carga
+        self.load_service_layer(
+            data["url"],
+            data["layers"],
+            item.text(0),
+            data.get("type", "wms"),
+            style_name  # <-- Aquí pasamos el estilo
+        )
+
+    def load_service_layer(self, url, layer_name, title, srv_type, style_name=""):
         base_url = url.split('?')[0]
         if "geoville" in base_url or "eea.europa" in base_url:
             crs_code = "EPSG:3857"
@@ -134,9 +145,10 @@ class ServicesIEPNBTab(QWidget):
             crs_code = "EPSG:4326"
 
         if srv_type == "wmts":
-            uri = f"layers={layer_name}&styles=&url={base_url}"
+            uri = f"layers={layer_name}&styles={style_name}&url={base_url}"
         else:
-            uri = f"contextualWMSLegend=0&crs={crs_code}&dpiMode=7&featureCount=10&format=image/png&layers={layer_name}&styles=&url={base_url}"
+            # Añadimos explícitamente el style_name mapeado
+            uri = f"contextualWMSLegend=0&crs={crs_code}&dpiMode=7&featureCount=10&format=image/png&layers={layer_name}&styles={style_name}&url={base_url}"
 
         rlayer = QgsRasterLayer(uri, title, "wms")
 
