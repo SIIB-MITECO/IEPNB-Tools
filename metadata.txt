@@ -2,52 +2,55 @@
 name=IEPNB Tools
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
-description=Comprehensive management, spatial analysis, and reporting for the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB)
-about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la gestión del Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB).
+description=Tool for querying datasets of the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB) via interoperable services with the Integrated Biodiversity Information System (SIIB).
+about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la consulta de los conjuntos de datos relativos al Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB).
+
+ --------------------------------------------------
+ Technical tool of the General Directorate of Biodiversity, Forests and Desertification for querying datasets related to the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB) through interoperable services with the Integrated Biodiversity Information System (SIIB).
 
  ES - Funcionalidades:
- 1. Identificación espacial avanzada y reportes automáticos (ENP, RN2000, MUP...).
- 2. Buscador territorial optimizado por capas y por término municipal.
- 3. Integración con la API EIDOS: consulta de especies y distribución.
- 4. Acceso a servicios interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
- 5. Consulta integrada en la fototeca del CENEAM.
- 6. Herramientas de contexto: Cartografía base y Google Street View.
+  1. Identificación espacial avanzada y reportes automáticos (ENP, RN2000, MUP...).
+  2. Buscador territorial optimizado por capas y por término municipal.
+  3. Integración con la API EIDOS: consulta de especies y distribución.
+  4. Acceso a servicios interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
+  5. Consulta integrada en la fototeca del CENEAM.
+  6. Herramientas de contexto: Cartografía base y Google Street View.
 
  EN - Features:
- 1. Advanced spatial identification and automated reporting (ENP, Natura 2000, MUP...).
- 2. Territorial search optimized by layers and municipality.
- 3. Integration with the EIDOS API: species query and distribution.
- 4. Direct access to interoperable WMS services (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
- 5. Integrated access to the CENEAM photo library.
- 6. Context tools: basemaps and Google Street View.
+  1. Advanced spatial identification and automated reporting (ENP, Natura 2000, MUP...).
+  2. Territorial search optimized by layers and municipality.
+  3. Integration with the EIDOS API: species query and distribution.
+  4. Direct access to interoperable WMS services (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
+  5. Integrated access to the CENEAM photo library.
+  6. Context tools: basemaps and Google Street View.
 
  CA - Funcionalitats:
- 1. Identificació espacial avançada i informes automàtics (ENP, RN2000, MUP...).
- 2. Cercador territorial optimitzat per capes i per terme municipal.
- 3. Integració amb l'API EIDOS: consulta d'espècies i distribució.
- 4. Accés a serveis interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
- 5. Consulta integrada a la fototeca del CENEAM.
- 6. Eines de context: Cartografia base i Google Street View.
+  1. Identificació espacial avançada i informes automàtics (ENP, RN2000, MUP...).
+  2. Cercador territorial optimitzat per capes i per terme municipal.
+  3. Integració amb l'API EIDOS: consulta d'espècies i distribució.
+  4. Accés a serveis interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
+  5. Consulta integrada a la fototeca del CENEAM.
+  6. Eines de context: Cartografia base i Google Street View.
 
  GL - Funcionalidades:
- 1. Identificación espacial avanzada e informes automáticos (ENP, RN2000, MUP...).
- 2. Buscador territorial optimizado por capas e por termo municipal.
- 3. Integración coa API EIDOS: consulta de especies e distribución.
- 4. Acceso a servizos interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
- 5. Consulta integrada na fototeca do CENEAM.
- 6. Ferramentas de contexto: cartografía base e Google Street View.
+  1. Identificación espacial avanzada e informes automáticos (ENP, RN2000, MUP...).
+  2. Buscador territorial optimizado por capas e por termo municipal.
+  3. Integración coa API EIDOS: consulta de especies e distribución.
+  4. Acceso a servizos interoperables WMS (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
+  5. Consulta integrada na fototeca do CENEAM.
+  6. Ferramentas de contexto: cartografía base e Google Street View.
 
  EU - Ezaugarriak:
- 1. Espazio-identifikazio aurreratua eta txosten automatikoak (ENP, RN2000, MUP...).
- 2. Geruzen eta udalerrien arabera optimizatutako lurralde-bilatzailea.
- 3. EIDOS APIarekin integrazioa: espezieen kontsulta eta banaketa.
- 4. WMS zerbitzu elkarreragileetarako sarbidea (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
- 5. CENEAM fototekan integratutako kontsulta.
- 6. Testuinguru-tresnak: Oinarrizko kartografia eta Google Street View.
+  1. Espazio-identifikazio aurreratua eta txosten automatikoak (ENP, RN2000, MUP...).
+  2. Geruzen eta udalerrien arabera optimizatutako lurralde-bilatzailea.
+  3. EIDOS APIarekin integrazioa: espezieen kontsulta eta banaketa.
+  4. WMS zerbitzu elkarreragileetarako sarbidea (MFE, Copernicus, PNOA, EIKOS, BDN, DGA, LULUCF, IDEE MITECO...).
+  5. CENEAM fototekan integratutako kontsulta.
+  6. Testuinguru-tresnak: Oinarrizko kartografia eta Google Street View.
 
  Soporte: buzon-bdatos@miteco.es
 
-version=1.1.3
+version=1.1.4
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
@@ -55,30 +58,28 @@ repository=https://github.com/SIIB-MITECO/IEPNB-Tools
 homepage=https://iepnb.gob.es/
 tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature,lulucf,calidad-ambiental
 changelog=
+ Versión 1.1.4:
+     - Actualización de la descripción general del plugin en los metadatos.
  Versión 1.1.3:
      - Integración de nuevos servicios de datos (masas de agua OGC API Features) en los módulos de identificación espacial, buscador territorial e informes automáticos.
      - Reparación y actualización de las leyendas de múltiples servicios WMS del MITECO.
      - Reparación del zoom a nivel España al incorporar las capas base.
-
  Versión 1.1.2:
      - Nuevas capas añadidas en la sección de Calidad y Evaluación Ambiental.
      - Integración de histórico LULUCF en los servicios web.
      - Solucionado error en el cabecero de versión del plugin.
-
  Versión 1.1.1:
      - Nueva funcionalidad: Búsqueda integrada de Términos Municipales (TTMM) como área de estudio.
      - Implementación de diálogo de búsqueda WFS independiente para la selección rápida de municipios.
      - Optimización de la gestión de memoria en peticiones de red (QEventLoop).
      - Soporte para municipios con enclaves o islas mediante unificación automática de geometrías (unary union).
      - Mejora en la transferencia segura de geometrías (WKT) entre interfaces gráficas.
-
  Versión 1.1:
      - Rediseño de interfaz (UI) para reducir ancho mínimo del panel.
      - Barras de desplazamiento horizontal en tablas de resultados.
      - Reorganización de botoneras y mejora de usabilidad con botones reactivos.
      - Integración de QProgressBar para exportación de informes PDF.
      - Solución de renderizado High-DPI para logos institucionales.
-
  Versión 1.0.x:
      - Corrección de títulos, limpieza de código (PEP8) y optimización de importaciones.
 category=Vector
