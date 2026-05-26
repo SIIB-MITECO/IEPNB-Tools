@@ -1,6 +1,7 @@
 # IEPNB - Tools (v1.1.4): Manual Integral de Usuario 🌍
 
-[cite_start]**IEPNB - Tools** es la herramienta técnica oficial de la Dirección General de Biodiversidad, Bosques y Desertificación para la gestión, visualización y análisis de la información geográfica del **Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB)**. Este plugin integra en una única interfaz todas las capacidades de consulta de la infraestructura de datos del Ministerio para la Transición Ecológica y el Reto Demográfico (MITECO).
+[cite_start]**IEPNB - Tools** Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la consulta de los conjuntos de datos relativos al Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB).
+
 
 ![QGIS Minimum Version](https://img.shields.io/badge/QGIS-3.22%2B-green?style=flat-square&logo=qgis)
 ![MITECO Oficial](https://img.shields.io/badge/Oficial-MITECO-blue?style=flat-square)
