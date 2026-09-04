@@ -1,12 +1,12 @@
 [general]
 name=IEPNB Tools
 qgisMinimumVersion=3.22
-qgisMaximumVersion=3.99
+qgisMaximumVersion=4.99
 description=Tool for querying datasets of the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB) via interoperable services with the Integrated Biodiversity Information System (SIIB).
-about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la consulta de los conjuntos de datos relativos al Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB).
+about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la consulta de los conjuntos de datos relativos al Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB). Compatible con QGIS 3.22 y QGIS 4.x.
 
  --------------------------------------------------
- Technical tool of the General Directorate of Biodiversity, Forests and Desertification for querying datasets related to the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB) through interoperable services with the Integrated Biodiversity Information System (SIIB).
+ Technical tool of the General Directorate of Biodiversity, Forests and Desertification for querying datasets related to the Spanish Inventory of Natural Heritage and Biodiversity (IEPNB) through interoperable services with the Integrated Biodiversity Information System (SIIB). Compatible with QGIS 3.22 and QGIS 4.x.
 
  ES - Funcionalidades:
   1. Identificación espacial avanzada y reportes automáticos (ENP, RN2000, MUP...).
@@ -50,14 +50,33 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
 
  Soporte: buzon-bdatos@miteco.es
 
-version=1.1.4
+version=2.0
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
 repository=https://github.com/SIIB-MITECO/IEPNB-Tools
-homepage=https://iepnb.gob.es/
-tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature,lulucf,calidad-ambiental
+homepage=https://plugins.qgis.org/plugins/IEPNB_Tools/
+tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,pnoa,copernicus,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature,lulucf,calidad-ambiental,costas,qgis4
 changelog=
+ Versión 2.0:
+     - Compatibilidad con QGIS 4.x (PyQt6), manteniendo el soporte de QGIS 3.22+.
+     - Corregidos fallos silenciosos en Territory, TTMM, ficha de especies y Fototeca CENEAM causados por el acceso a enums de QNetworkReply no compatible con PyQt6.
+     - Solucionado el buscador de Términos Municipales (TTMM), que no localizaba resultados por un desajuste entre el identificador interno y el definido en la configuración de servicios.
+     - Corregida la generación de informes PDF en QGIS 4 (método de impresión de QTextDocument no disponible en PyQt6).
+     - Corregida la deformación de los logotipos institucionales (panel lateral e informe PDF) en QGIS4 y pantallas de alta densidad (HiDPI).
+     - Reparación completa de la migración de servicios WMS de MAPA a MITECO.
+     - Actualizado e integrado el catálogo completo de la IDE de MITECO con un total de 240 capas/servicios en la configuración.
+     - Corregido consulta API aguas superficiales.
+ Versión 1.1.6:
+     - Optimización de la cartografía base sustituyendo el servicio WMTS del PNOA por conexión directa a teselas XYZ para un renderizado más fluido.
+     - Integración del catálogo completo de servicios WMS de MITECO Costas (POEM, Zonas de Uso Prioritario, Zonas de Alto Potencial, Zonificación Eólica y DPMT).
+     - Solucionado el recuento duplicado en los cruces espaciales con Provincias y Municipios (TTMM) mediante la agrupación estricta por atributos y unificación de geometrías multipartes.
+     - Actualizado al catálogo PNOA2024 dentro de PNOA histórico.
+ Versión 1.1.5:
+     - Solucionado el problema del bounding box al cargar la cartografía base.
+     - Nueva funcionalidad: Identificación de resultados filtrados por provincias y términos municipales (TTMM) en búsqueda por punto y área.
+     - Mejora en la generación de informes PDF mediante la incorporación de datos de límites administrativos.
+     - Solucionado carga de leyendas en las capas de peligrosidad por inundación fluvial y marina.
  Versión 1.1.4:
      - Actualización de la descripción general del plugin en los metadatos.
  Versión 1.1.3:

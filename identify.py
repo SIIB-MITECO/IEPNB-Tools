@@ -17,8 +17,8 @@ import os
 import tempfile
 import uuid
 import csv
-from datetime import datetime
 import unicodedata
+import datetime
 
 # --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
@@ -28,8 +28,7 @@ from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                  QDialog, QLineEdit)
 from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QVariant, QEventLoop, pyqtSignal
 from qgis.PyQt import QtNetwork
-from qgis.PyQt.QtGui import QColor, QTextDocument
-from qgis.PyQt.QtPrintSupport import QPrinter
+from qgis.PyQt.QtGui import QColor, QTextDocument, QPixmap
 
 from qgis.core import (QgsWkbTypes, QgsPointXY, QgsGeometry,
                        QgsNetworkAccessManager, QgsApplication,
@@ -49,19 +48,19 @@ class ManualPolygonTool(QgsMapTool):
     def __init__(self, iface):
         super().__init__(iface.mapCanvas())
         self.points = []
-        self.rubber = QgsRubberBand(iface.mapCanvas(), QgsWkbTypes.PolygonGeometry)
+        self.rubber = QgsRubberBand(iface.mapCanvas(), QgsWkbTypes.GeometryType.PolygonGeometry)
         self.rubber.setColor(QColor(239, 68, 68, 180))
         self.rubber.setWidth(2)
 
     def canvasPressEvent(self, e):
-        if e.button() == Qt.LeftButton:
+        if e.button() == Qt.MouseButton.LeftButton:
             p = self.toMapCoordinates(e.pos())
             self.points.append(QgsPointXY(p))
             if len(self.points) == 1:
                 self.rubber.addPoint(p, True)
             self.rubber.addPoint(p, True)
             self.rubber.show()
-        elif e.button() == Qt.RightButton and len(self.points) > 2:
+        elif e.button() == Qt.MouseButton.RightButton and len(self.points) > 2:
             self.polygon_finished.emit(QgsGeometry.fromPolygonXY([self.points]))
             self.deactivate()
 
@@ -71,7 +70,7 @@ class ManualPolygonTool(QgsMapTool):
 
     def deactivate(self):
         self.points = []
-        self.rubber.reset(QgsWkbTypes.PolygonGeometry)
+        self.rubber.reset(QgsWkbTypes.GeometryType.PolygonGeometry)
         super().deactivate()
 
 
@@ -81,7 +80,7 @@ class DialogoBusquedaTTMM(QDialog):
         self.setWindowTitle("Buscar Término Municipal (TTMM)")
         self.resize(500, 400)
         self.network_manager = QgsNetworkAccessManager.instance()
-        self.srv_ttmm = next((s for s in CONFIG_TERRITORY if s["id"] == "TTMM"), None)
+        self.srv_ttmm = next((s for s in CONFIG_TERRITORY if s["id"] == "Municipio"), None)
 
         # NUEVO: Aquí guardaremos la geometría seleccionada en lugar de usar señales
         self.geom_seleccionada = None
@@ -109,7 +108,7 @@ class DialogoBusquedaTTMM(QDialog):
 
         self.tabla = QTableWidget(0, 3)
         self.tabla.setHorizontalHeaderLabels(["Municipio", "Provincia", "Acción"])
-        self.tabla.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tabla.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.tabla)
 
     def normalize(self, t):
@@ -131,7 +130,7 @@ class DialogoBusquedaTTMM(QDialog):
         self.lbl_estado.setText("Buscando en servidor...")
 
         # Bloqueamos el cursor global para que el usuario espere
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
 
         w_nom = nom
         for v in 'aáeéiíoóuúüAÁEÉIÍOÓUÚÜ':
@@ -154,12 +153,12 @@ class DialogoBusquedaTTMM(QDialog):
         loop = QEventLoop()
         reply = self.network_manager.get(QtNetwork.QNetworkRequest(url))
         reply.finished.connect(loop.quit)
-        loop.exec_()  # QGIS se pausa aquí hasta recibir la respuesta completa
+        loop.exec()  # QGIS se pausa aquí hasta recibir la respuesta completa
         # --- FIN PETICIÓN SÍNCRONA ---
 
         QApplication.restoreOverrideCursor()
 
-        if reply.error() != QtNetwork.QNetworkReply.NoError:
+        if reply.error() != QtNetwork.QNetworkReply.NetworkError.NoError:
             self.lbl_estado.setText("Error de red al consultar el WFS.")
             reply.deleteLater()
             return
@@ -241,7 +240,7 @@ class IdentifyTab(QWidget):
         dialogo = DialogoBusquedaTTMM(self)
 
         # NUEVO: Esperamos a que el diálogo se cierre (Aceptar)
-        if dialogo.exec_():
+        if dialogo.exec():
             # Comprobamos si el usuario llegó a seleccionar un municipio
             if dialogo.geom_seleccionada:
                 # Extraemos la geometría a formato texto (WKT) de forma segura
@@ -363,7 +362,7 @@ class IdentifyTab(QWidget):
 
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Capa", "Cantidad", "Acción"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
 
         self.point_tool = QgsMapToolEmitPoint(self.iface.mapCanvas())
@@ -500,12 +499,12 @@ class IdentifyTab(QWidget):
                            QgsProject.instance().transformContext())
         dArea.setEllipsoid('WGS84')
         area_m2 = dArea.measureArea(geometry)
-        area_km2 = area_m2 / 1000000.0
+        area_km2 = area_m2 / 1500000.0
 
-        if area_km2 > 10000:
+        if area_km2 > 15000:
             QMessageBox.warning(self, "Área demasiado grande",
                                 f"El polígono seleccionado tiene un área de {area_km2:,.2f} km².\n\n"
-                                "El límite máximo permitido es de 10.000 km² para evitar sobrecargar las consultas al servidor.")
+                                "El límite máximo permitido es de 15.000 km² para evitar sobrecargar las consultas al servidor.")
             self.status_lbl.setText("Error: Área de estudio supera el límite.")
             return
 
@@ -533,13 +532,13 @@ class IdentifyTab(QWidget):
         self.btn_csv.setEnabled(False)
         self.btn_report.setEnabled(False)
 
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
         self.status_lbl.setText("Consultando servicios...")
         self.query_next_service(0)
 
     def query_next_service(self, index):
         if index >= len(CONFIG_SERVICIOS):
-            self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+            self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)
             capas_queried = ", ".join([srv['id'] for srv in CONFIG_SERVICIOS])
             msg = f"Consulta finalizada. Encontrados: {self.table.rowCount()}<br>"
             msg += f"<span style='font-size: 9px; font-weight: normal; color: #555;'>Capas consultadas: {capas_queried}</span>"
@@ -598,8 +597,7 @@ class IdentifyTab(QWidget):
                 features = data.get("features", [])
 
                 if features:
-                    filtered_features = []
-                    collected_infos = []
+                    grupos_locales = {}
 
                     for f in features:
                         geom_dict = f.get("geometry")
@@ -609,20 +607,66 @@ class IdentifyTab(QWidget):
                         geom_json_str = json.dumps(geom_dict)
                         feat_geom = QgsJsonUtils.geometryFromGeoJson(geom_json_str)
 
+                        # Intersección espacial con la máscara
                         if feat_geom and not feat_geom.isNull() and hasattr(self, 'mask_4326') and feat_geom.intersects(
                                 self.mask_4326):
-                            filtered_features.append(f)
-
                             props = f.get("properties", {})
-                            info_val = str(props.get(srv["col_inf"])).strip(" ,") if props.get(srv["col_inf"]) else "-"
-                            if info_val != "-":
+
+                            # --- 1. EXTRACCIÓN ROBUSTA DE NOMBRES (Inspirado en territory.py) ---
+                            info_val = None
+                            if srv.get("id") == "Municipio":
+                                info_val = props.get("nut3_nom") or props.get("municipio")
+                            elif srv.get("id") in ["Provincia", "CCAA"]:
+                                info_val = props.get("nut2_nom") or props.get("provincia")
+
+                            # Si no es TTMM/Provincia, usamos su col_inf o un campo nombre por defecto
+                            if not info_val:
+                                info_val = props.get(srv.get("col_inf")) or props.get("nombre") or props.get("name")
+
+                            info_val = str(info_val).strip(" ,") if info_val else "Elemento sin nombre"
+
+                            # Agrupamos en el diccionario
+                            if info_val not in grupos_locales:
+                                grupos_locales[info_val] = []
+                            grupos_locales[info_val].append(f)
+
+                    if grupos_locales:
+                        filtered_features = []
+                        collected_infos = []
+
+                        # --- 2. UNIFICACIÓN DE MICROPOLÍGONOS ---
+                        for info_val, lista_micropoligonos in grupos_locales.items():
+                            if len(lista_micropoligonos) == 1:
+                                filtered_features.append(lista_micropoligonos[0])
+                            else:
+                                # Hay varios fragmentos: extraemos sus geometrías y las unimos
+                                geoms_a_unir = []
+                                for feat in lista_micropoligonos:
+                                    g = QgsJsonUtils.geometryFromGeoJson(json.dumps(feat["geometry"]))
+                                    if g and not g.isNull():
+                                        geoms_a_unir.append(g)
+
+                                if geoms_a_unir:
+                                    # Fusión total de las partes disjuntas
+                                    geom_fusionada = QgsGeometry.unaryUnion(geoms_a_unir)
+
+                                    # Clonamos el diccionario base y le sobreescribimos la geometría unida
+                                    feature_unificada = lista_micropoligonos[0].copy()
+                                    feature_unificada["geometry"] = json.loads(geom_fusionada.asJson())
+
+                                    filtered_features.append(feature_unificada)
+
+                            # Añadimos al sumario de texto
+                            if info_val != "Elemento sin nombre":
                                 collected_infos.append(info_val)
 
-                    if filtered_features:
-                        combined_info = ",".join(list(set(collected_infos)))
+                        combined_info = ", ".join(list(set(collected_infos))) if collected_infos else "Varios"
+
+                        # Ahora filtered_features tiene longitud exacta = número de municipios/provincias reales
                         self.add_group_row(srv["id"], filtered_features, combined_info, srv["color"])
-            except Exception:
-                pass
+            except Exception as e:
+                from qgis.core import QgsMessageLog, Qgis
+                QgsMessageLog.logMessage(f"Error procesando WFS: {e}", "IEPNB Tools", Qgis.MessageLevel.Warning)
 
         self.query_next_service(index + 1)
 
@@ -633,7 +677,7 @@ class IdentifyTab(QWidget):
         count_str = f"{count} elementos"
 
         item_cap = QTableWidgetItem(str(cap))
-        item_cap.setData(Qt.UserRole, {
+        item_cap.setData(Qt.ItemDataRole.UserRole, {
             "feature_list": feature_list,
             "cap": cap,
             "count_str": count_str,
@@ -650,7 +694,7 @@ class IdentifyTab(QWidget):
 
     def add_all_results(self):
         for r in range(self.table.rowCount()):
-            data = self.table.item(r, 0).data(Qt.UserRole)
+            data = self.table.item(r, 0).data(Qt.ItemDataRole.UserRole)
             self.load_group_to_map(data["feature_list"], data["cap"], data["count_str"], data["info"], data["color"])
 
         # IDEA: Si la tabla tenía resultados y se han añadido, habilitamos el botón explícitamente
@@ -670,7 +714,7 @@ class IdentifyTab(QWidget):
             vlayer.setCustomProperty("service_id", cap)
             vlayer.setCustomProperty("original_info", info)
 
-            if vlayer.geometryType() == QgsWkbTypes.LineGeometry:
+            if vlayer.geometryType() == QgsWkbTypes.GeometryType.LineGeometry:
                 sym = QgsLineSymbol.createSimple({'line_color': color.name(), 'line_width': '0.7'})
             else:
                 sym = QgsFillSymbol.createSimple(
@@ -687,7 +731,7 @@ class IdentifyTab(QWidget):
                 self.btn_intersect.setEnabled(True)
 
     def run_intersection_analysis(self):
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
         if not self.auto_intersect:
             self.status_lbl.setText("Calculando intersecciones...")
 
@@ -718,15 +762,33 @@ class IdentifyTab(QWidget):
             "Intersecciones") or QgsProject.instance().layerTreeRoot().insertGroup(0, "Intersecciones")
 
         for vlayer in self.result_layers:
+            # --- BLOQUE DE SEGURIDAD CONTRA CAPAS BORRADAS ---
+            try:
+                # Esto fuerza a Python a comprobar si el objeto C++ sigue existiendo
+                if vlayer is None or not vlayer.isValid():
+                    continue
+
+                # Intentamos acceder a los campos para verificar que realmente está viva
+                fields = vlayer.fields()
+
+            except RuntimeError:
+                # Si llegamos aquí, es que la capa fue borrada (objeto eliminado)
+                # Saltamos a la siguiente y continuamos
+                continue
+            # --------------------------------------------------
+
+            # A partir de aquí, el código continúa con total seguridad
             feats_out = []
-            fields = vlayer.fields()
+
+            # IMPORTANTE: Ahora que sabemos que vlayer es segura, usamos 'fields'
+            # que obtuvimos arriba dentro del try
             fields.append(QgsField("calc_valor", QVariant.Double))
             fields.append(QgsField("calc_unidad", QVariant.String))
             fields.append(QgsField("info_origen", QVariant.String))
+
             orig_type = vlayer.geometryType()
 
-            # --- INICIO LÓGICA DE AGRUPACIÓN ---
-            # 1. Identificar el campo por el que vamos a agrupar (nombre, monte, vía...)
+            # --- LÓGICA DE AGRUPACIÓN ---
             nom_idx = -1
             for c in ["nombre", "monte", "site_name", "nb_via", "id"]:
                 idx = fields.indexOf(c)
@@ -773,9 +835,9 @@ class IdentifyTab(QWidget):
                 geom_calc = QgsGeometry(geom_final)
                 geom_calc.transform(xform_area)
                 val = round(
-                    geom_calc.area() / 10000.0 if orig_type == QgsWkbTypes.PolygonGeometry else geom_calc.length(),
+                    geom_calc.area() / 10000.0 if orig_type == QgsWkbTypes.GeometryType.PolygonGeometry else geom_calc.length(),
                     2)
-                unit = "ha" if orig_type == QgsWkbTypes.PolygonGeometry else "m"
+                unit = "ha" if orig_type == QgsWkbTypes.GeometryType.PolygonGeometry else "m"
 
                 new_feat.setAttribute("calc_valor", val)
                 new_feat.setAttribute("calc_unidad", unit)
@@ -784,7 +846,7 @@ class IdentifyTab(QWidget):
             # --- FIN LÓGICA DE AGRUPACIÓN ---
 
             if feats_out:
-                uri_type = "MultiPolygon" if orig_type == QgsWkbTypes.PolygonGeometry else "MultiLineString"
+                uri_type = "MultiPolygon" if orig_type == QgsWkbTypes.GeometryType.PolygonGeometry else "MultiLineString"
                 # --- NUEVO: Limpiamos el nombre original y ponemos el conteo real ---
                 # Cortamos por el paréntesis para quitar el " (179)" original
                 clean_name = vlayer.name().split('(')[0].strip()
@@ -797,7 +859,7 @@ class IdentifyTab(QWidget):
                 pr.addAttributes(fields)
                 vl_out.updateFields()
                 pr.addFeatures(feats_out)
-                if orig_type == QgsWkbTypes.LineGeometry:
+                if orig_type == QgsWkbTypes.GeometryType.LineGeometry:
                     sym = QgsLineSymbol.createSimple({'line_color': '#FF0000', 'line_width': '0.2'})
                 else:
                     props = vlayer.renderer().symbol().symbolLayer(0).properties()
@@ -814,7 +876,7 @@ class IdentifyTab(QWidget):
 
         self.btn_report.setEnabled(True)
         self.btn_csv.setEnabled(True)
-        self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)
         if not self.auto_intersect:
             self.status_lbl.setText(f"Completado. Sistema: {self.last_epsg_used}")
 
@@ -822,7 +884,7 @@ class IdentifyTab(QWidget):
         loop = QEventLoop()
         reply = self.network_manager.get(QtNetwork.QNetworkRequest(QUrl(url_str)))
         reply.finished.connect(loop.quit)
-        loop.exec_()
+        loop.exec()
         data = reply.readAll().data()
         reply.deleteLater()
         try:
@@ -837,7 +899,7 @@ class IdentifyTab(QWidget):
         path_csv, _ = QFileDialog.getSaveFileName(self, "Guardar CSV", default_save, "CSV (*.csv)")
         if not path_csv:
             return
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
         try:
             with open(path_csv, mode='w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f, delimiter=';')
@@ -858,10 +920,16 @@ class IdentifyTab(QWidget):
             self.status_lbl.setText("CSV exportado con éxito.")
         except Exception as e:
             self.status_lbl.setText(f"Error al exportar CSV: {e}")
-        self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)
 
     def generate_report(self):
         import base64
+        import os
+        import tempfile
+        from qgis.PyQt.QtWidgets import QFileDialog, QApplication
+        from qgis.PyQt.QtCore import Qt, QUrl, QEventLoop
+        from qgis.PyQt import QtNetwork
+        from qgis.PyQt.QtPrintSupport import QPrinter
 
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         default_save = os.path.join(desktop_path, "Resultados_IEPNB.pdf")
@@ -869,7 +937,7 @@ class IdentifyTab(QWidget):
         path_pdf, _ = QFileDialog.getSaveFileName(self, "Guardar PDF", default_save, "PDF (*.pdf)")
         if not path_pdf:
             return
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
         self.status_lbl.setText("Iniciando generación de informe...")
 
         img_path = os.path.join(tempfile.gettempdir(), "map_snap.png")
@@ -880,6 +948,21 @@ class IdentifyTab(QWidget):
         logo2 = os.path.join(self.plugin_dir, "minis.png")
         logo1_url = QUrl.fromLocalFile(logo1).toString()
         logo2_url = QUrl.fromLocalFile(logo2).toString()
+
+        # El motor de texto enriquecido de Qt no calcula el ancho a partir
+        # del alto de forma automática como haría un navegador: si en el
+        # <img> solo se indica 'height' (sin 'width'), la imagen puede
+        # salir deformada. Calculamos ambos a partir del tamaño real del
+        # PNG para mantener la proporción.
+        def _wh_for_height(ruta, alto_deseado):
+            pm = QPixmap(ruta)
+            if pm.isNull() or pm.height() == 0:
+                return alto_deseado, alto_deseado
+            ancho = round(pm.width() * (alto_deseado / pm.height()))
+            return ancho, alto_deseado
+
+        logo1_w, logo1_h = _wh_for_height(logo1, 45)
+        logo2_w, logo2_h = _wh_for_height(logo2, 45)
 
         FIELD_MAP = {
             "ENP": {"fig": "figura", "nom": "nombre"},
@@ -922,7 +1005,6 @@ class IdentifyTab(QWidget):
         info_sp = []
         total_esp = len(esp_ids)
 
-        # ✅ Iniciamos la barra gráfica
         if total_esp > 0:
             self.progress_bar.setMaximum(total_esp)
             self.progress_bar.setValue(0)
@@ -937,7 +1019,6 @@ class IdentifyTab(QWidget):
                 mins, secs = divmod(remaining_seconds, 60)
                 eta_text = f" | Tiempo restante: {mins:02d}:{secs:02d}"
 
-            # ✅ Actualizamos la etiqueta (solo texto) y movemos la barra gráfica
             self.status_lbl.setText(f"Procesando especies {index + 1}/{total_esp}{eta_text}")
             self.progress_bar.setValue(index + 1)
             QApplication.processEvents()
@@ -968,15 +1049,18 @@ class IdentifyTab(QWidget):
                         img_reply = self.network_manager.get(QtNetwork.QNetworkRequest(QUrl(url_img_final)))
                         loop = QEventLoop()
                         img_reply.finished.connect(loop.quit)
-                        loop.exec_()
+                        loop.exec()
 
-                        if img_reply.error() == QtNetwork.QNetworkReply.NoError:
+                        if img_reply.error() == QtNetwork.QNetworkReply.NetworkError.NoError:
                             data_bytes = img_reply.readAll().data()
                             if len(data_bytes) > 100:
                                 b64 = base64.b64encode(data_bytes).decode('ascii')
                                 img_local_path = f"data:image/jpeg;base64,{b64}"
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        from qgis.core import QgsMessageLog, Qgis
+                        QgsMessageLog.logMessage(
+                            f"No se pudo descargar la foto de la especie {id_t} para el informe: {e}",
+                            "IEPNB Tools", Qgis.MessageLevel.Warning)
 
             info_sp.append({
                 "id": id_t, "cien": it.get('ScientificName', 'N/A'),
@@ -989,6 +1073,58 @@ class IdentifyTab(QWidget):
         info_sp.sort(key=lambda x: (x["prio"], x["cien"]))
         area_txt = f"{self.area_estudio_ha:,.2f} ha" if hasattr(self, 'area_estudio_ha') else "No calculada"
 
+        municipios = set()
+        provincias = set()
+
+        for layer_item in self.generated_intersection_layers:
+            sid = layer_item.customProperty("service_id")
+
+            if sid == "Provincia":
+                for feat in layer_item.getFeatures():
+                    idx = layer_item.fields().indexOf("nut3_nom")
+                    if idx != -1 and feat.attribute(idx):
+                        provincias.add(str(feat.attribute(idx)))
+
+            elif sid == "Municipio":
+                for feat in layer_item.getFeatures():
+                    idx = layer_item.fields().indexOf("nombre")
+                    if idx != -1 and feat.attribute(idx):
+                        municipios.add(str(feat.attribute(idx)))
+
+        bloque_ubicacion_html = ""
+
+        if municipios or provincias:
+            lineas_html = []
+            if provincias:
+                txt_prov = ", ".join(sorted(provincias))
+                lineas_html.append(f'<b style="color: #2e7d32;">Provincias afectadas:</b> {txt_prov}')
+
+            if municipios:
+                txt_muni = ", ".join(sorted(municipios))
+                lineas_html.append(f'<b style="color: #2e7d32;">Términos municipales afectados:</b> {txt_muni}')
+
+            contenido_dinamico = "<br>".join(lineas_html)
+
+            bloque_ubicacion_html = f"""
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #2e7d32; padding: 8px; margin-bottom: 13px;">
+                        <p style="margin: 0; font-family: sans-serif; font-size: 10px; color: #2c3e50;">
+                            {contenido_dinamico}
+                        </p>
+                    </div>
+                    """
+
+        # ---------------------------------------------------------------------
+        # Cálculo del nombre del EPSG
+        epsg_str = str(self.last_epsg_used).replace("EPSG:", "").strip()
+
+        if epsg_str == "25830":
+            crs_name = " - ETRS89 - UTM 30 N"
+        elif epsg_str == "4083":
+            crs_name = " - REGCAN UTM 28N"
+        else:
+            crs_name = ""
+
+        # Generación del HTML unificado
         html = f"""<html><head><style>
                     body {{ font-family: sans-serif; font-size: 10px; color: #333; }}
                     h1 {{ color: #2c3e50; border-bottom: 2px solid #2c3e50; margin-bottom: 10px; }}
@@ -1008,7 +1144,10 @@ class IdentifyTab(QWidget):
                     }}
                     th {{ background-color: #ecf0f1; font-weight: bold; vertical-align: middle; }}
 
-                    tr, td {{ page-break-inside: avoid; }}
+                    /* 'page-break-inside: avoid' en tr/td NO surte efecto al
+                       imprimir con QTextDocument (Qt lo ignora para tablas);
+                       el control de saltos de página real se hace a mano en
+                       Python con page-break-before por tandas de filas. */
 
                     a {{ color: #2980b9; text-decoration: none; font-weight: bold; }}
                     img {{ display: block; margin: 0 auto; }}
@@ -1026,17 +1165,20 @@ class IdentifyTab(QWidget):
                         text-align: justify;
                     }}
                 </style></head><body>
-                    <h1>Resultados - IEPNB</h1>
-                    <p><b>Fecha de generación:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
-                    <p class='crs-info'>Los cálculos de superficies y distancias se han realizado utilizando el sistema de referencia proyectado: <b>{self.last_epsg_used}</b></p>
 
-                    <center><img src="{map_file_url}" width="480"></center>
+            <h1>Informe de resultados - IEPNB Tools</h1>
+            <p><b>Fecha de generación:</b> {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+            <p class='crs-info'>Los cálculos de superficies y distancias se han realizado utilizando el sistema de referencia proyectado: <b>{self.last_epsg_used}{crs_name}</b></p>
 
-                    <p style='font-size: 12px; text-align: center; margin-top: 12px; margin-bottom: 15px; color: #2c3e50;'>
-                        <b>Superficie total de estudio:</b> {area_txt}
-                    </p>
+            <center><img src="{map_file_url}" width="480"></center>
 
-                    <h3>1. Intersecciones IEPNB Detectadas</h3>
+            <p style='font-size: 12px; text-align: center; margin-top: 12px; margin-bottom: 15px; color: #2c3e50;'>
+                <b>Superficie total de estudio:</b> {area_txt}
+            </p>
+
+            {bloque_ubicacion_html}
+
+            <h3>1. Intersecciones detectadas con las capas seleccionadas</h3>
             <table border="1" cellspacing="0" cellpadding="5" width="98%" style="margin-left: 1%;">
                 <tr>
                     <th width="20%" style='text-align:center;'>Capa</th>
@@ -1049,7 +1191,7 @@ class IdentifyTab(QWidget):
         for layer_item in self.generated_intersection_layers:
             sid = layer_item.customProperty("service_id")
 
-            if sid == "Riqueza Esp.":
+            if sid in ["Riqueza Esp.", "Provincia", "Municipio"]:
                 continue
 
             for feat in layer_item.getFeatures():
@@ -1083,8 +1225,19 @@ class IdentifyTab(QWidget):
                 html += f"<tr><td>{layer_item.name().replace('Corte: ', '')}</td><td>{fig_val}</td><td>{nom_val}</td><td style='text-align:center;'><b>{val:.2f} {unit}</b></td><td style='text-align:center;'>{porcentaje_html}</td></tr>"
 
         if info_sp:
-            html += """</table><h3>2. Riqueza de Especies (Clasificación Taxonómica)</h3>
-                    <table border="1" cellspacing="0" cellpadding="5" width="98%" style="margin-left: 1%;">
+            # IMPORTANTE: Qt (QTextDocument) NO soporta 'page-break-inside:
+            # avoid' para filas de tabla al imprimir - es una limitación del
+            # motor, no un descuido de CSS. Si una fila no cabe entera en lo
+            # que queda de página, Qt corta cada celda por separado en vez
+            # de mover la fila completa a la página siguiente (de ahí el
+            # descuadre). La única forma fiable es forzar manualmente un
+            # salto de página cada N filas, para que cada tabla-tanda
+            # arranque siempre en la parte superior de una página en
+            # blanco y ninguna fila llegue nunca "al límite".
+            ROWS_PER_PAGE = 8  # filas de especies (con foto de 90px) por página; ajustable si hiciera falta
+
+            def cabecera_tabla_especies():
+                return """<table border="1" cellspacing="0" cellpadding="5" width="98%" style="margin-left: 1%;">
                         <tr>
                             <th width="22%" style='text-align:center;'>Imagen</th>
                             <th width="12%" style='text-align:center;'>Taxón ID</th>
@@ -1092,16 +1245,28 @@ class IdentifyTab(QWidget):
                             <th width="25%" style='text-align:center;'>Nombre Científico</th>
                             <th width="16%" style='text-align:center;'>Grupo</th>
                         </tr>"""
-            for s in info_sp:
+
+            html += ('</table><div style="page-break-before: always;"></div>'
+                     '<h3>2. Riqueza de Especies (Clasificación Taxonómica)</h3>'
+                     + cabecera_tabla_especies())
+
+            for i, s in enumerate(info_sp):
+                if i > 0 and i % ROWS_PER_PAGE == 0:
+                    html += '</table><div style="page-break-before: always;"></div>' + cabecera_tabla_especies()
+
                 link = f"https://iepnb.gob.es/areas-tematicas/especies-silvestres/eidos/{s['id']}"
-                img_tag = f'<img src="{s["img"]}" width="110">' if s["img"] else "<i>Sin foto</i>"
+                # Ancho Y alto fijos: si solo se fija el ancho, cada foto usa
+                # su alto natural (muy variable) y la fila se descuadra al
+                # paginar el PDF, desplazando los datos a la fila siguiente.
+                img_tag = (f'<img src="{s["img"]}" width="110" height="90">'
+                           if s["img"] else "<i>Sin foto</i>")
 
                 html += f"""<tr>
-                            <td style='text-align:center;'>{img_tag}</td>
-                            <td style='text-align:center;'><a href='{link}'>{s['id']}</a></td>
-                            <td>{s['vulg']}</td>
-                            <td><b>{s['cien']}</b></td>
-                            <td><i>{s['grupo']}</i></td>
+                            <td style='text-align:center; vertical-align:middle;'>{img_tag}</td>
+                            <td style='text-align:center; vertical-align:middle;'><a href='{link}'>{s['id']}</a></td>
+                            <td style='vertical-align:middle;'>{s['vulg']}</td>
+                            <td style='vertical-align:middle;'><b>{s['cien']}</b></td>
+                            <td style='vertical-align:middle;'><i>{s['grupo']}</i></td>
                         </tr>"""
 
         html += f"""</table>
@@ -1117,18 +1282,21 @@ class IdentifyTab(QWidget):
             <div class='footer-logos'>
                 <table style='border:none; width:100%;'>
                     <tr style='border:none;'>
-                        <td style='border:none; text-align:left; width:50%;'><img src='{logo1_url}' height='45'></td>
-                        <td style='border:none; text-align:right; width:50%;'><img src='{logo2_url}' height='45'></td>
+                        <td style='border:none; text-align:left; width:50%;'><img src='{logo1_url}' width='{logo1_w}' height='{logo1_h}'></td>
+                        <td style='border:none; text-align:right; width:50%;'><img src='{logo2_url}' width='{logo2_w}' height='{logo2_h}'></td>
                     </tr>
                 </table>
             </div></body></html>"""
 
         printer = QPrinter()
-        printer.setOutputFormat(QPrinter.PdfFormat)
+        printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(path_pdf)
         doc = QTextDocument()
         doc.setHtml(html)
-        doc.print_(printer)
+        # PyQt5 expone el método como 'print_' (alias histórico, 'print' era
+        # palabra reservada en Python 2); PyQt6 solo expone 'print'.
+        metodo_print = getattr(doc, "print_", None) or getattr(doc, "print")
+        metodo_print(printer)
         self.status_lbl.setText("Informe exportado con éxito.")
-        self.progress_bar.setVisible(False)  # ✅ Ocultamos la barra
-        self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+        self.progress_bar.setVisible(False)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)

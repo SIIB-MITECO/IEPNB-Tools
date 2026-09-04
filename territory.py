@@ -123,7 +123,7 @@ class TerritoryTab(QWidget):
         # --- TABLA ---
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Capa", "Nombre", "Información", "Acción"])
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
 
@@ -161,12 +161,12 @@ class TerritoryTab(QWidget):
         self.table.setRowCount(0)
         self.all_results = []
         self.btn_add_all.setEnabled(False)
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
         self.query_next_service(0, nom, inf)
 
     def query_next_service(self, index, nom_orig, inf_orig):
         if index >= len(self.current_services):
-            self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+            self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)
             num = self.table.rowCount()
             self.status_lbl.setText(f"✅ Finalizado. {num} resultados.")
             if num > 0:
@@ -179,7 +179,7 @@ class TerritoryTab(QWidget):
 
         # --- Identificar columnas de búsqueda ---
         col_busqueda_inf = srv.get('col_inf')
-        if srv["id"] == "TTMM":
+        if srv["id"] == "Municipio":
             col_busqueda_inf = "nut3_nom"
         elif srv["id"] in ["Provincia", "CCAA"]:
             col_busqueda_inf = "nut2_nom"
@@ -247,7 +247,7 @@ class TerritoryTab(QWidget):
 
     def process_response(self, reply, index, nom_orig, inf_orig):
         try:
-            if reply.error() == QtNetwork.QNetworkReply.NoError:
+            if reply.error() == QtNetwork.QNetworkReply.NetworkError.NoError:
                 srv = self.current_services[index]
                 data = json.loads(reply.readAll().data())
                 nom_clean = self.normalize(nom_orig)
@@ -265,7 +265,7 @@ class TerritoryTab(QWidget):
 
                     # Obtener Información
                     val_inf = "-"
-                    if srv["id"] == "TTMM":
+                    if srv["id"] == "Municipio":
                         val_inf = props.get("nut3_nom") or "-"
                     elif srv["id"] in ["Provincia", "CCAA"]:
                         val_inf = props.get("nut2_nom") or "-"
@@ -287,8 +287,10 @@ class TerritoryTab(QWidget):
                         'nom': v_nom, 'inf': v_inf, 'col': srv["color"]
                     })
                     self.add_row(cap_id, v_nom, v_inf, features, srv["color"])
-        except Exception:
-            pass
+        except Exception as e:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"Error procesando respuesta de búsqueda territorial (servicio índice {index}): {e}",
+                                      "IEPNB Tools", Qgis.MessageLevel.Warning)
         finally:
             reply.deleteLater()
             self.query_next_service(index + 1, nom_orig, inf_orig)
@@ -314,10 +316,10 @@ class TerritoryTab(QWidget):
             vlayer = QgsVectorLayer(tmp_path, f"{cap}: {name}", "ogr")
             if vlayer.isValid():
                 geom_type = vlayer.geometryType()
-                if geom_type == QgsWkbTypes.PolygonGeometry:
+                if geom_type == QgsWkbTypes.GeometryType.PolygonGeometry:
                     sym = QgsFillSymbol.createSimple(
                         {'color': col.name(), 'outline_color': 'black', 'outline_width': '0.1'})
-                elif geom_type == QgsWkbTypes.LineGeometry:
+                elif geom_type == QgsWkbTypes.GeometryType.LineGeometry:
                     sym = QgsLineSymbol.createSimple({'line_color': col.name(), 'line_width': '0.6'})
                 else:
                     sym = QgsMarkerSymbol.createSimple({'color': col.name(), 'size': '2'})
@@ -346,7 +348,7 @@ class TerritoryTab(QWidget):
         if not self.all_results:
             return
 
-        self.iface.mainWindow().setCursor(Qt.WaitCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.WaitCursor)
 
         # 1. AGRUPAR RESULTADOS POR CAPA
         grupos_por_capa = {}
@@ -385,7 +387,7 @@ class TerritoryTab(QWidget):
             canvas.setExtent(total_rect)
             canvas.refresh()
 
-        self.iface.mainWindow().setCursor(Qt.ArrowCursor)
+        self.iface.mainWindow().setCursor(Qt.CursorShape.ArrowCursor)
 
     def export_table(self):
         path, _ = QFileDialog.getSaveFileName(self, "Exportar", "IEPNB_Resultados.csv", "CSV (*.csv)")

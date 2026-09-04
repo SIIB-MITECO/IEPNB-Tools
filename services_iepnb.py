@@ -80,11 +80,11 @@ class ServicesIEPNBTab(QWidget):
                 # Detectamos el icono según sea WMS o WMTS
                 icon_type = '/mIconWms.svg' if datos.get("type", "wms") == "wms" else '/mIconWmts.svg'
                 item.setIcon(0, QgsApplication.getThemeIcon(icon_type))
-                item.setData(0, Qt.UserRole, datos)
+                item.setData(0, Qt.ItemDataRole.UserRole, datos)
 
             # Si el valor es otro diccionario, es un SUBGRUPO
             elif isinstance(value, dict):
-                item.setFlags(item.flags() & ~Qt.ItemIsSelectable)  # No se puede añadir al mapa directamente
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)  # No se puede añadir al mapa directamente
                 self._add_items_recursively(item, value)  # Bajamos un nivel más
 
     def filter_tree(self, text):
@@ -120,10 +120,10 @@ class ServicesIEPNBTab(QWidget):
 
     def add_selected_service(self):
         item = self.tree.currentItem()
-        if not item or not item.data(0, Qt.UserRole):
+        if not item or not item.data(0, Qt.ItemDataRole.UserRole):
             return
 
-        data = item.data(0, Qt.UserRole)
+        data = item.data(0, Qt.ItemDataRole.UserRole)
 
         # 1. Extraemos el estilo de config.py si existe (si no, queda vacío "")
         style_name = data.get("styles", "")
@@ -139,16 +139,27 @@ class ServicesIEPNBTab(QWidget):
 
     def load_service_layer(self, url, layer_name, title, srv_type, style_name=""):
         base_url = url.split('?')[0]
+
+        # --- 1. ASIGNACIÓN DE CRS INTELIGENTE ---
         if "geoville" in base_url or "eea.europa" in base_url:
             crs_code = "EPSG:3857"
+        elif "mapama.gob.es" in base_url or "idee.es" in base_url:
+            crs_code = "EPSG:25830"
         else:
             crs_code = "EPSG:4326"
 
+        # --- 2. EL AJUSTE DEL ESTILO (La clave del éxito) ---
+        # Si el config.py dice "default", lo convertimos a cadena vacía
+        # para que la URI final quede como '&styles&', igual que el QGIS nativo.
+        if style_name == "default":
+            style_name = ""
+
+        # --- 3. CONSTRUCCIÓN DE LA URI EXACTA ---
         if srv_type == "wmts":
             uri = f"layers={layer_name}&styles={style_name}&url={base_url}"
         else:
-            # Añadimos explícitamente el style_name mapeado
-            uri = f"contextualWMSLegend=0&crs={crs_code}&dpiMode=7&featureCount=10&format=image/png&layers={layer_name}&styles={style_name}&url={base_url}"
+            # Replicamos fielmente la cadena que funcionó en la consola
+            uri = f"contextualWMSLegend=0&crs={crs_code}&dpiMode=7&featureCount=10&format=image/png&layers={layer_name}&styles={style_name}&tilePixelRatio=0&url={base_url}"
 
         rlayer = QgsRasterLayer(uri, title, "wms")
 
@@ -164,7 +175,7 @@ class ServicesIEPNBTab(QWidget):
             self.status_lbl.setText(f"✅ Cargado: {title}")
         else:
             self.status_lbl.setText(f"❌ Error al cargar {title}")
-            QgsMessageLog.logMessage(f"Fallo al cargar: {uri}", "IEPNB Tools", Qgis.Warning)
+            QgsMessageLog.logMessage(f"Fallo al cargar: {uri}", "IEPNB Tools", Qgis.MessageLevel.Warning)
 
     def delete_selected_service(self):
         item = self.tree.currentItem()

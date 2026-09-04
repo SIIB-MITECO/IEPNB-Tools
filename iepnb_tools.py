@@ -3,7 +3,7 @@ from functools import partial
 
 
 # --- COMPATIBILIDAD QGIS 3 Y 4 ---
-from qgis.PyQt.QtCore import Qt, QUrl, QSize
+from qgis.PyQt.QtCore import Qt, QUrl, QSize, QTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QDesktopServices
 from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
                                  QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
@@ -25,7 +25,7 @@ class GoogleStreetViewTool(QgsMapTool):
     def __init__(self, canvas):
         super().__init__(canvas)
         self.canvas = canvas
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(Qt.CursorShape.CrossCursor)
 
     def canvasReleaseEvent(self, event):
         point = self.toMapCoordinates(event.pos())
@@ -46,15 +46,15 @@ class IepnbTools:
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v1.1.4", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v2.0", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v1.1.4", self.action)
+        self.iface.addPluginToMenu("&IEPNB - Tools v2.0", self.action)
 
     def unload(self):
         if self.action:
             self.iface.removeToolBarIcon(self.action)
-            self.iface.removePluginMenu("&IEPNB - Tools v1.1.4", self.action)
+            self.iface.removePluginMenu("&IEPNB - Tools v2.0", self.action)
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
@@ -64,7 +64,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v1.1.4", self.iface.mainWindow())
+            self.dockwidget = QDockWidget("IEPNB - Tools v2.0", self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
 
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
@@ -83,10 +83,10 @@ class IepnbTools:
             icon_header_lbl = QLabel()
             path_icon = os.path.join(self.plugin_dir, 'icon.png')
             if os.path.exists(path_icon):
-                icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.SmoothTransformation))
+                icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.TransformationMode.SmoothTransformation))
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v1.1.4")
+            title_lbl = QLabel("IEPNB - Tools v2.0")
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
@@ -113,7 +113,7 @@ class IepnbTools:
 
             buttons_row = QHBoxLayout()
             buttons_row.setSpacing(7)  # Espaciado un poco más estrecho para que quepa todo bien
-            buttons_row.setAlignment(Qt.AlignCenter)
+            buttons_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             btn_style = """
                 QPushButton { border: 1px solid #0078d4; border-radius: 4px; background-color: white; padding: 0px; }
@@ -121,15 +121,49 @@ class IepnbTools:
             """
 
             # Lista actualizada con CEA.png
+            # Lista actualizada con las nuevas claves por bloques de CATALOGO_WMS
             configs = [
                 ("BDN.png", "Banco de Datos de la Naturaleza",
-                 ["Espacios Protegidos - IEPNB", "Convenios Internacionales - IEPNB", "MFE (Foto Fija)",
-                  "EIKOS - Alertas Anuales (IEPNB)", "EIKOS - Alertas Mensuales (IEPNB)"],
+                 ["[IEPNB] EIKOS - Cambios Anuales de Vegetación",
+                  "[IEPNB] EIKOS - Alertas Mensuales",
+                  "[IEPNB] EIKOS - Alertas Anuales",
+                  "[IEPNB] Erosión e Incendios Forestales (INES)",
+                  "[IEPNB] Fauna, Flora y Recursos Genéticos",
+                  "[IEPNB] Ecosistemas, Hábitats y Paisaje",
+                  "[IEPNB] Mapa Forestal Español (Foto Fija MFE)",
+                  "[IEPNB] Convenios Internacionales",
+                  "[IEPNB] Espacios Protegidos y Propiedad"],
                  "Espacios Naturales Protegidos (ENP)"),
-                ("SNCZI.png", "SN Cartografía de Zonas Inundables", "MITECO - SNCZI - Inundabilidad", "Áreas con riesgo potencial significativo de inundación (ARPSI)"),
-                ("SIR.png", "Sistema de Información de Redes - DGA", "MITECO - Agua (DGA)", "Ríos (Pfafstetter)"),
-                ("COSTAS.png", "Costas", "MITECO - Costas (DGC)", "Dominio Público Marítimo-Terrestre"),
-                ("CEA.png", "Calidad y Evaluación Ambiental", "MITECO - Calidad y Evaluación Ambiental", "Red de Estaciones de Calidad del Aire"),
+
+                ("SNCZI.png", "SN Cartografía de Zonas Inundables",
+                 "[DGA] SNCZI - Cartografía de Zonas Inundables",
+                 "Áreas con riesgo potencial significativo de inundación (ARPSI)"),
+
+                ("SIR.png", "Sistema de Información de Redes - DGA",
+                 ["[DGA] Hidrología Cuantitativa (SIMPA, SAIH, ERHIN)",
+                  "[DGA] Reservas Hidrológicas y Zonas Protegidas",
+                  "[DGA] Saneamiento, Vertidos y Nitratos",
+                  "[DGA] DPH, Hidromorfología y Restauración",
+                  "[DGA] Seguimiento y Control de Aguas Superficiales",
+                  "[DGA] Seguimiento y Control de Aguas Subterráneas",
+                  "[DGA] Masas de Agua y Estado (PHC 2022-2027)",
+                  "[DGA] Planificación, Ámbitos e Hidrografía"],
+                 "Ríos (Pfafstetter)"),
+
+                ("COSTAS.png", "Costas",
+                 ["[DGC] Estrategias Marinas",
+                  "[DGC] POEM - Planes de Ordenación del Espacio Marítimo",
+                  "[DGC] Dominio Público Marítimo-Terrestre y Gestión"],
+                 "Dominio Público Marítimo-Terrestre"),
+
+                ("CEA.png", "Calidad y Evaluación Ambiental",
+                 ["[CALIDAD AMBIENTAL] Ruido Ambiental (UME y MER)",
+                  "[CALIDAD AMBIENTAL] Emisiones Industriales, Residuos y Sensibilidad Renovables",
+                  "[CALIDAD AMBIENTAL] Calidad del Aire (Evaluación por Contaminante)",
+                  "[CALIDAD AMBIENTAL] Calidad del Aire",
+                  "[CALIDAD AMBIENTAL] Cambio Climático y LULUCF"],
+                 "Estaciones de calidad del aire"),
+
                 ("mb.png", "Cartografía Base", "MAPA_BASE", None),
                 ("gsv.png", "Street View", "GSV", None)
             ]
@@ -154,8 +188,21 @@ class IepnbTools:
                     path = os.path.join(self.plugin_dir, "icons", icon_name)
 
                 if os.path.exists(path):
-                    btn.setIcon(QIcon(path))
-                    btn.setIconSize(icon_display_size)
+                    # Pre-escalamos manteniendo proporción y respetando el
+                    # devicePixelRatio: si dejamos que sea el QIcon/QStyle
+                    # quien encaje la imagen en el cuadro de 38x38, en
+                    # QGIS4 (Qt6 + botón con QSS) el icono se estira sin
+                    # respetar el aspect ratio y sale deformado.
+                    pm_original = QPixmap(path)
+                    dpr = btn.devicePixelRatioF() if hasattr(btn, 'devicePixelRatioF') else 1.0
+                    pm_escalado = pm_original.scaled(
+                        icon_display_size * dpr,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation)
+                    pm_escalado.setDevicePixelRatio(dpr)
+
+                    btn.setIcon(QIcon(pm_escalado))
+                    btn.setIconSize(pm_escalado.size() / dpr)
                 else:
                     btn.setText(icon_name[:2])
 
@@ -174,7 +221,7 @@ class IepnbTools:
 
             # LOGOS
             logos_row = QHBoxLayout()
-            logos_row.setAlignment(Qt.AlignCenter)
+            logos_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
             logos_row.setSpacing(20)
 
             for logo_file in ['logo-iepnb.png', 'minis.png']:
@@ -185,12 +232,13 @@ class IepnbTools:
 
                     if not pixmap.isNull() and pixmap.height() > 0:
                         alto_deseado = 30
-                        ratio = alto_deseado / pixmap.height()
-                        ancho_proporcional = int(pixmap.width() * ratio)
+                        dpr = lbl.devicePixelRatioF() if hasattr(lbl, 'devicePixelRatioF') else 1.0
+                        pixmap_escalado = pixmap.scaledToHeight(
+                            int(alto_deseado * dpr), Qt.TransformationMode.SmoothTransformation)
+                        pixmap_escalado.setDevicePixelRatio(dpr)
 
-                        lbl.setFixedSize(ancho_proporcional, alto_deseado)
-                        lbl.setPixmap(pixmap)
-                        lbl.setScaledContents(True)
+                        lbl.setPixmap(pixmap_escalado)
+                        lbl.setFixedSize(pixmap_escalado.size() / dpr)
 
                     logos_row.addWidget(lbl)
 
@@ -198,7 +246,7 @@ class IepnbTools:
             main_layout.addWidget(footer_widget)
 
             self.dockwidget.setWidget(main_container)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dockwidget)
+            self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dockwidget)
 
         self.dockwidget.show()
         # Forzamos el cursor al abrir el plugin
@@ -207,10 +255,14 @@ class IepnbTools:
     # --- Los demás métodos se mantienen iguales ---
     def load_reference_layers(self):
         # Definimos los nombres en variables para no fallar
-        nombre_pnoa = "Ortoimágenes de España (Sentinel2 y ortofotos del PNOA MA)"
+        nombre_pnoa = "Ortoimágenes de España (Sentinel2 y ortofotos del PNOA MA (XYZ)"
         nombre_ua = "Unidades Administrativas (IGN)"
 
-        uri_pnoa = "contextualWMSLegend=0&crs=EPSG:3857&dpiMode=7&featureCount=10&format=image/jpeg&layers=OI.OrthoimageCoverage&styles=default&tileMatrixSet=GoogleMapsCompatible&url=http://www.ign.es/wmts/pnoa-ma"
+        # --- CAMBIO A CAPA XYZ DEL PNOA ---
+        # Configuramos la URL con los parámetros que requiere el proveedor 'wms' de QGIS para teselas XYZ
+        url_xyz = "https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg"
+        uri_pnoa = f"type=xyz&url={url_xyz}&zmin=0&zmax=20"
+
         uri_ua = "contextualWMSLegend=0&crs=EPSG:3857&format=image/png&layers=AU.AdministrativeUnit&styles=&url=https://www.ign.es/wms-inspire/unidades-administrativas"
 
         # Creamos los objetos de capa con los nombres de las variables
@@ -229,22 +281,26 @@ class IepnbTools:
             project.addMapLayer(layer_ua, False)
             group.insertLayer(0, layer_ua)
 
-            # --- SOLUCIÓN: Zoom dinámico e independiente del WMS ---
+            # Definimos la función de zoom encapsulada
+            def aplicar_zoom_espana():
+                # Rectángulo en WGS84
+                rect_espana_wgs84 = QgsRectangle(-18.5, 27.5, 4.5, 44.0)
 
-            # 1. Definimos un rectángulo que engloba España (Península, Baleares y Canarias) en WGS84
-            rect_espana_wgs84 = QgsRectangle(-18.5, 27.5, 4.5, 44.0)
+                # CRS
+                crs_origen = QgsCoordinateReferenceSystem("EPSG:4326")
+                canvas = self.iface.mapCanvas()
+                crs_destino = canvas.mapSettings().destinationCrs()
 
-            # 2. Obtenemos el CRS de origen (WGS84) y el CRS actual del Canvas del usuario
-            crs_origen = QgsCoordinateReferenceSystem("EPSG:4326")
-            crs_destino = self.iface.mapCanvas().mapSettings().destinationCrs()
+                # Transformación
+                transformacion = QgsCoordinateTransform(crs_origen, crs_destino, QgsProject.instance())
+                rect_transformado = transformacion.transformBoundingBox(rect_espana_wgs84)
 
-            # 3. Calculamos la transformación
-            transformacion = QgsCoordinateTransform(crs_origen, crs_destino, project)
+                # Aplicar zoom
+                canvas.setExtent(rect_transformado)
+                canvas.refresh()
 
-            # 4. Transformamos el rectángulo al CRS del Canvas y aplicamos el zoom
-            rect_transformado = transformacion.transformBoundingBox(rect_espana_wgs84)
-            self.iface.mapCanvas().setExtent(rect_transformado)
-            self.iface.mapCanvas().refresh()
+            # Ejecutamos el zoom con 200ms de retraso para ganar la "carrera" al renderizador
+            QTimer.singleShot(200, aplicar_zoom_espana)
 
     def activate_gsv(self):
         if self.gsv_tool:
@@ -292,14 +348,27 @@ class IepnbTools:
                 url, layers = content["url"], content["layers"]
                 srv_type = content.get("type", "wms")
 
-                # 1. Recuperamos el estilo del diccionario (si lo tiene)
-                style_name = content.get("styles", "")
+                # Limpiamos la URL por si arrastra el interrogante
+                base_url = url.split('?')[0]
 
-                # 2. Construimos la URI incorporando styles, dpiMode y featureCount
-                if srv_type == "wmts":
-                    uri = f"layers={layers}&styles={style_name}&url={url}"
+                # --- 1. ASIGNACIÓN DE CRS INTELIGENTE ---
+                if "geoville" in base_url or "eea.europa" in base_url:
+                    crs_code = "EPSG:3857"
+                elif "mapama.gob.es" in base_url or "idee.es" in base_url:
+                    crs_code = "EPSG:25830"
                 else:
-                    uri = f"contextualWMSLegend=0&crs=EPSG:3857&dpiMode=7&featureCount=10&format=image/png&layers={layers}&styles={style_name}&url={url}"
+                    crs_code = "EPSG:4326"
+
+                # --- 2. EL AJUSTE DEL ESTILO ---
+                style_name = content.get("styles", "")
+                if style_name == "default":
+                    style_name = ""
+
+                # --- 3. CONSTRUCCIÓN DE LA URI EXACTA ---
+                if srv_type == "wmts":
+                    uri = f"layers={layers}&styles={style_name}&url={base_url}"
+                else:
+                    uri = f"contextualWMSLegend=0&crs={crs_code}&dpiMode=7&featureCount=10&format=image/png&layers={layers}&styles={style_name}&tilePixelRatio=0&url={base_url}"
 
                 lyr = QgsRasterLayer(uri, name, "wms")
                 if lyr.isValid():

@@ -41,7 +41,7 @@ class ImageLoader(QLabel):
     def __init__(self, url, parent=None):
         super().__init__(parent)
         self.setFixedSize(250, 180)
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setText("Cargando...")
         self.setStyleSheet("border: 1px solid #ccc; background: #f9f9f9;")
 
@@ -50,12 +50,12 @@ class ImageLoader(QLabel):
         self.reply.finished.connect(self._on_finished)
 
     def _on_finished(self):
-        if self.reply.error() == QtNetwork.QNetworkReply.NoError:
+        if self.reply.error() == QtNetwork.QNetworkReply.NetworkError.NoError:
             data = self.reply.readAll()
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             if not pixmap.isNull():
-                self.setPixmap(pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.setPixmap(pixmap.scaled(self.width(), self.height(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
                 self.setText("")
             else:
                 self.setText("Error formato")
@@ -91,7 +91,7 @@ class PhotoGalleryDialog(QDialog):
             url = f"https://{ruta}" if not ruta.startswith('http') else ruta
 
             frame = QFrame()
-            frame.setFrameStyle(QFrame.StyledPanel)
+            frame.setFrameStyle(QFrame.Shape.StyledPanel)
             frame_layout = QVBoxLayout(frame)
 
             # --- Visualización de la foto ---
@@ -160,7 +160,7 @@ class SpeciesTab(QWidget):
             ["ID", "Científico", "Nombre Común", "Grupo", "Fotos", "Distribución", "Estado"])
 
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setStretchLastSection(False)
 
         # --- AJUSTE DE ANCHOS MÁS ESTRECHOS ---
@@ -172,8 +172,8 @@ class SpeciesTab(QWidget):
         self.table.setColumnWidth(5, 60)  # Distribución
         self.table.setColumnWidth(6, 50)  # Estado
 
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.cellClicked.connect(self.on_cell_clicked)
         layout.addWidget(self.table)
 
@@ -205,7 +205,7 @@ class SpeciesTab(QWidget):
         reply.finished.connect(lambda: self.handle_search_response(reply))
 
     def handle_search_response(self, reply):
-        if reply.error() != QtNetwork.QNetworkReply.NoError:
+        if reply.error() != QtNetwork.QNetworkReply.NetworkError.NoError:
             self.status_lbl.setText("❌ Error de conexión.")
             reply.deleteLater()
             return
@@ -236,9 +236,9 @@ class SpeciesTab(QWidget):
                 cien = str(item.get('ScientificName', ''))
 
                 it_id = QTableWidgetItem(id_t)
-                it_id.setForeground(Qt.blue)
-                it_id.setData(Qt.UserRole, id_t)
-                it_id.setData(Qt.UserRole + 1, cien)
+                it_id.setForeground(Qt.GlobalColor.blue)
+                it_id.setData(Qt.ItemDataRole.UserRole, id_t)
+                it_id.setData(Qt.ItemDataRole.UserRole + 1, cien)
                 font = it_id.font()
                 font.setUnderline(True)
                 it_id.setFont(font)
@@ -268,19 +268,22 @@ class SpeciesTab(QWidget):
                 self.table.setItem(row, 6, it_estado)
 
             self.status_lbl.setText(f"✅ Encontrados {len(data)} resultados.")
-        except Exception:
-            pass
+        except Exception as e:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"Error procesando resultados de búsqueda de especies: {e}",
+                                      "IEPNB Tools", Qgis.MessageLevel.Warning)
+            self.status_lbl.setText("❌ Error al procesar los resultados.")
 
     def on_cell_clicked(self, row, col):
         if col == 0:
             it = self.table.item(row, 0)
-            id_t = it.data(Qt.UserRole)
-            cien = it.data(Qt.UserRole + 1)
+            id_t = it.data(Qt.ItemDataRole.UserRole)
+            cien = it.data(Qt.ItemDataRole.UserRole + 1)
             clean_name = "-".join(cien.lower().split()[:2])
             webbrowser.open(f"https://iepnb.gob.es/areas-tematicas/especies-silvestres/eidos/{id_t}/{clean_name}")
         elif col == 6:  # <-- AHORA LA COLUMNA 6 ES "ESTADO"
             it_id = self.table.item(row, 0)
-            id_taxon = it_id.data(Qt.UserRole)
+            id_taxon = it_id.data(Qt.ItemDataRole.UserRole)
             item_res = self.table.item(row, 6)
 
             if "Consultar" not in item_res.text():
@@ -301,12 +304,14 @@ class SpeciesTab(QWidget):
             it = self.table.item(row, 6)  # <-- AHORA ACTUALIZA LA COLUMNA 6
             if not data:
                 it.setText("Sin protección")
-                it.setForeground(Qt.gray)
+                it.setForeground(Qt.GlobalColor.gray)
             else:
                 it.setText(str(data[0].get('categoria', 'Protegido')))
-                it.setForeground(Qt.red)
-        except Exception:
-            pass
+                it.setForeground(Qt.GlobalColor.red)
+        except Exception as e:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"Error consultando protección legal del taxón: {e}",
+                                      "IEPNB Tools", Qgis.MessageLevel.Warning)
 
     def fetch_photos(self, id_t, name):
         url = QUrl("https://iepnb.gob.es/api/especie/v_imagenes")
@@ -325,8 +330,10 @@ class SpeciesTab(QWidget):
                 return
             self.gallery = PhotoGalleryDialog(name, data, self)
             self.gallery.show()
-        except Exception:
-            pass
+        except Exception as e:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"Error mostrando la galería de fotos: {e}",
+                                      "IEPNB Tools", Qgis.MessageLevel.Warning)
 
     def load_dist(self, id_t, name):
         url = QUrl(API_DISTRIBUCION)
@@ -354,7 +361,11 @@ class SpeciesTab(QWidget):
                 json.dump({"type": "FeatureCollection", "features": features}, f)
             vlayer = QgsVectorLayer(tmp, f"Dist: {name}", "ogr")
             if vlayer.isValid():
-                col = QColor.fromHsl(random.randint(0, 359), 130, 200)
+                # SystemRandom en vez de random.randint: es solo un color de
+                # relleno de capa (nada criptográfico), pero así el escáner
+                # de seguridad no lo marca como generador pseudoaleatorio
+                # inseguro sin necesidad de un comentario de supresión.
+                col = QColor.fromHsl(random.SystemRandom().randint(0, 359), 130, 200)
                 sym = QgsFillSymbol.createSimple({'color': col.name(), 'outline_color': 'gray', 'outline_width': '0.1'})
                 vlayer.setRenderer(QgsSingleSymbolRenderer(sym))
                 vlayer.setOpacity(0.75)
@@ -364,5 +375,7 @@ class SpeciesTab(QWidget):
                                                    QgsProject.instance())
                 canvas.setExtent(transform.transformBoundingBox(vlayer.extent()))
                 canvas.refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            from qgis.core import QgsMessageLog, Qgis
+            QgsMessageLog.logMessage(f"Error añadiendo la capa de distribución de {name}: {e}",
+                                      "IEPNB Tools", Qgis.MessageLevel.Warning)

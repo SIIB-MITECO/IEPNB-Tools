@@ -20,7 +20,7 @@ from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                  QLineEdit, QPushButton, QScrollArea, QFrame,
                                  QFileDialog)
 from qgis.PyQt.QtCore import QUrl, Qt
-from qgis.PyQt.QtNetwork import QNetworkRequest
+from qgis.PyQt.QtNetwork import QNetworkRequest, QNetworkReply
 # ---------------------------------------------
 
 from qgis.core import QgsNetworkAccessManager
@@ -63,7 +63,7 @@ class CeneamTab(QWidget):
 
         self.container = QWidget()
         self.results_layout = QVBoxLayout(self.container)
-        self.results_layout.setAlignment(Qt.AlignTop)
+        self.results_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll.setWidget(self.container)
         layout.addWidget(self.scroll)
 
@@ -98,7 +98,7 @@ class CeneamTab(QWidget):
 
         url = self.search_url_base + query_clean
         request = QNetworkRequest(QUrl(url))
-        request.setHeader(QNetworkRequest.UserAgentHeader, "Mozilla/5.0")
+        request.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, "Mozilla/5.0")
 
         self.nam = QgsNetworkAccessManager.instance()
         self.reply = self.nam.get(request)
@@ -113,7 +113,7 @@ class CeneamTab(QWidget):
     def process_html_results(self):
         self.clear_results()
 
-        if self.reply.error() != 0:
+        if self.reply.error() != QNetworkReply.NetworkError.NoError:
             self.counter_label.setText("❌ Error en la conexión.")
             return
 
@@ -172,8 +172,8 @@ class CeneamTab(QWidget):
         v.setSpacing(0)
 
         img = ImageLoader(img_url)
-        img.setAlignment(Qt.AlignCenter)
-        v.addWidget(img, 0, Qt.AlignCenter)
+        img.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        v.addWidget(img, 0, Qt.AlignmentFlag.AlignCenter)
 
         text_container = QWidget()
         text_v = QVBoxLayout(text_container)
@@ -218,7 +218,7 @@ class CeneamTab(QWidget):
             reply.finished.connect(lambda: self.save_file(reply, path))
 
     def save_file(self, reply, path):
-        if reply.error() == 0:
+        if reply.error() == QNetworkReply.NetworkError.NoError:
             with open(path, 'wb') as f:
                 f.write(reply.readAll().data())
             self.iface.messageBar().pushMessage("Éxito", "Imagen guardada", level=0)
