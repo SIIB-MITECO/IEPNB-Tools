@@ -1,12 +1,14 @@
 import os
 from functools import partial
+from datetime import datetime, timezone
 
 
 # --- COMPATIBILIDAD QGIS 3 Y 4 ---
 from qgis.PyQt.QtCore import Qt, QUrl, QSize, QTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QDesktopServices
 from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
-                                 QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
+                                 QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+                                 QToolButton, QMenu, QMessageBox, QApplication)
 
 
 from qgis.gui import QgsMapTool
@@ -18,7 +20,9 @@ from .territory import TerritoryTab
 from .species import SpeciesTab
 from .services_iepnb import ServicesIEPNBTab
 from .ceneam import CeneamTab
-from .config import CATALOGO_WMS
+from .config import CATALOGO_WMS, INDICE_FORMULAS, CATEGORIAS_INDICES
+from .indices_historicos import (obtener_credenciales_cdse, obtener_token_cdse,
+                                 consultar_historico_indice, GraficaIndiceDialog)
 
 
 class GoogleStreetViewTool(QgsMapTool):
@@ -37,24 +41,45 @@ class GoogleStreetViewTool(QgsMapTool):
         QDesktopServices.openUrl(QUrl(url))
 
 
+class IndiceHistoricoTool(QgsMapTool):
+    """Herramienta de mapa: clic -> callback(lat, lon, indice) para el
+    índice espectral histórico elegido previamente en el menú del botón."""
+
+    def __init__(self, canvas, callback):
+        super().__init__(canvas)
+        self.canvas = canvas
+        self.callback = callback
+        self.indice = "NDVI"
+        self.setCursor(Qt.CursorShape.CrossCursor)
+
+    def canvasReleaseEvent(self, event):
+        point = self.toMapCoordinates(event.pos())
+        crs_src = self.canvas.mapSettings().destinationCrs()
+        crs_dest = QgsCoordinateReferenceSystem("EPSG:4326")
+        transform = QgsCoordinateTransform(crs_src, crs_dest, QgsProject.instance())
+        point_wgs = transform.transform(point)
+        self.callback(point_wgs.y(), point_wgs.x(), self.indice)
+
+
 class IepnbTools:
     def __init__(self, iface):
         self.iface = iface
         self.dockwidget = None
         self.plugin_dir = os.path.dirname(__file__)
         self.gsv_tool = None
+        self.indice_tool = None
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v2.0", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v 2.1.0", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v2.0", self.action)
+        self.iface.addPluginToMenu("&IEPNB - Tools v 2.1.0", self.action)
 
     def unload(self):
         if self.action:
             self.iface.removeToolBarIcon(self.action)
-            self.iface.removePluginMenu("&IEPNB - Tools v2.0", self.action)
+            self.iface.removePluginMenu("&IEPNB - Tools v 2.1.0", self.action)
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
@@ -64,7 +89,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v2.0", self.iface.mainWindow())
+            self.dockwidget = QDockWidget("IEPNB - Tools v 2.1.0", self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
 
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
@@ -86,7 +111,7 @@ class IepnbTools:
                 icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.TransformationMode.SmoothTransformation))
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v2.0")
+            title_lbl = QLabel("IEPNB - Tools v 2.1.0")
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
@@ -165,17 +190,28 @@ class IepnbTools:
                  "Estaciones de calidad del aire"),
 
                 ("mb.png", "Cartografía Base", "MAPA_BASE", None),
-                ("gsv.png", "Street View", "GSV", None)
+                ("gsv.png", "Street View", "GSV", None),
+                ("indice.png", "Índice Histórico", "IDX", None)
             ]
 
             for icon_name, tip, keys, priority_layer in configs:
-                btn = QPushButton()
+                # El botón de índice histórico necesita menú desplegable
+                # (elegir NDVI/NDWI/NBR/EVI en el propio clic del icono),
+                # el resto siguen siendo QPushButton normales.
+                btn = QToolButton() if keys == "IDX" else QPushButton()
 
-                # Tamaño de botón estándar (44px para que no sea gigante)
-                btn.setFixedSize(44, 44)
+                # Tamaño de botón estándar (44px para que no sea gigante),
+                # salvo el de índice histórico: el logo Copernicus es muy
+                # apaisado y necesita un botón rectangular para leerse.
+                if keys == "IDX":
+                    btn.setFixedSize(70, 44)
+                else:
+                    btn.setFixedSize(44, 44)
 
-                # Lógica de tamaño de PNG aumentado (excepto gsv)
-                if icon_name != "gsv.png":
+                # Lógica de tamaño de PNG aumentado (excepto gsv e índice)
+                if keys == "IDX":
+                    icon_display_size = QSize(60, 24)  # Logo Copernicus, apaisado
+                elif icon_name != "gsv.png":
                     icon_display_size = QSize(38, 38)  # PNG Grande
                 else:
                     icon_display_size = QSize(30, 30)  # PNG Discreto para Street View
@@ -210,6 +246,26 @@ class IepnbTools:
                     btn.clicked.connect(self.load_reference_layers)
                 elif keys == "GSV":
                     btn.clicked.connect(self.activate_gsv)
+                elif keys == "IDX":
+                    btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                    btn.setStyleSheet(
+                        btn_style + " QToolButton::menu-indicator { image: none; }")
+                    menu = QMenu(btn)
+                    menu.setToolTipsVisible(True)  # necesario para que se vean los tooltips de las acciones
+                    for categoria, indices in CATEGORIAS_INDICES.items():
+                        submenu = menu.addMenu(categoria)
+                        submenu.setToolTipsVisible(True)
+                        for indice in indices:
+                            accion = submenu.addAction(indice)
+                            meta = INDICE_FORMULAS.get(indice, {})
+                            if meta:
+                                accion.setToolTip(
+                                    f"{meta.get('descripcion', '')}\n"
+                                    f"Fórmula: {meta.get('formula_legible', '')}\n"
+                                    f"Rango: {meta.get('rango', '')}")
+                            accion.triggered.connect(
+                                partial(self.activate_indice_historico, indice))
+                    btn.setMenu(menu)
                 else:
                     sub_group = "Banco de Datos de la Naturaleza (BDN) - IEPNB" if icon_name == "BDN.png" else None
                     btn.clicked.connect(
@@ -305,6 +361,48 @@ class IepnbTools:
     def activate_gsv(self):
         if self.gsv_tool:
             self.iface.mapCanvas().setMapTool(self.gsv_tool)
+
+    def activate_indice_historico(self, indice):
+        if not self.indice_tool:
+            self.indice_tool = IndiceHistoricoTool(self.iface.mapCanvas(), self.on_punto_indice)
+        self.indice_tool.indice = indice
+        self.iface.mapCanvas().setMapTool(self.indice_tool)
+        self.iface.mainWindow().statusBar().showMessage(
+            f"Índice histórico ({indice}): haz clic en el mapa sobre el punto de interés.", 5000)
+
+    def on_punto_indice(self, lat, lon, indice):
+        # 1) Credenciales CDSE: Client ID / Client Secret del Dashboard de
+        #    Sentinel Hub (NO el usuario/contraseña de la cuenta personal).
+        #    Se piden una sola vez y quedan en el Authentication Manager de QGIS.
+        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
+        if not client_id:
+            return  # el usuario canceló el diálogo de credenciales
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.iface.mainWindow().statusBar().showMessage(
+            f"Consultando histórico {indice}...", 0)
+        try:
+            token = obtener_token_cdse(client_id, client_secret)
+
+            # Rango por defecto: desde el inicio de la cobertura Sentinel-2
+            # hasta hoy, agregado por mes (evita miles de puntos por nube).
+            hoy = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            serie = consultar_historico_indice(
+                token, lat, lon, indice,
+                fecha_inicio="2017-01-01T00:00:00Z",
+                fecha_fin=hoy,
+                intervalo="P5D")
+        except Exception as exc:
+            QApplication.restoreOverrideCursor()
+            self.iface.mainWindow().statusBar().clearMessage()
+            QMessageBox.critical(self.iface.mainWindow(), "Índice histórico", str(exc))
+            return
+
+        QApplication.restoreOverrideCursor()
+        self.iface.mainWindow().statusBar().clearMessage()
+
+        dialogo = GraficaIndiceDialog(indice, lat, lon, serie, self.iface.mainWindow())
+        dialogo.exec()
 
     def load_multiple_categories(self, categories, visible_layer_name=None, main_group_name="Servicios MITECO",
                                  sub_group_name=None):

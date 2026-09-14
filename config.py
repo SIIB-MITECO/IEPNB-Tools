@@ -119,7 +119,8 @@ CATALOGO_WMS = {
     },
     "[IEPNB] Mapa Forestal Español (Foto Fija MFE)": {
         "MFE - Tipo de Bosque": {"url": f"{BASE_GEOSERVER}/foto_fija_mfe/wms", "layers": "ff_tipo_bosque"},
-        "MFE - Uso": {"url": f"{BASE_GEOSERVER}/foto_fija_mfe/wms", "layers": "ff_uso"}
+        "MFE - Uso": {"url": f"{BASE_GEOSERVER}/foto_fija_mfe/wms", "layers": "ff_uso"},
+        "MFE - Formación arbolada": {"url": f"{BASE_GEOSERVER}/foto_fija_mfe/wms", "layers": "ff_form_arbolada"}
     },
     "[IEPNB] Ecosistemas, Hábitats y Paisaje": {
         "Distribución de Hábitat Artículo 12 (2007-2012)": {"url": f"{BASE_GEOSERVER}/ecosistemas/wms", "layers": "habitats_art12_2007_2012"},
@@ -592,7 +593,7 @@ CATALOGO_WMS = {
         "PNOA 2017": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2017"},
         "PNOA 2016": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2016"},
         "PNOA 2015": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2015"},
-        "PNOA 2014": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA14"},
+        "PNOA 2014": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2014"},
         "PNOA 2013": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2013"},
         "PNOA 2012": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2012"},
         "PNOA 2011": {"url": "https://www.ign.es/wms/pnoa-historico", "layers": "PNOA2011"},
@@ -656,3 +657,134 @@ CATALOGO_WMS = {
 API_DISTRIBUCION = f"{BASE_API_EIDOS}/especie/v_ubicacion"
 API_CATALOGO = f"{BASE_API_EIDOS}/catalogo/v_listapatronespecie"
 URL_FICHA_EIDOS = "https://iepnb.gob.es/areas-tematicas/especies-silvestres/eidos/"
+
+# --- CDSE (Copernicus Data Space Ecosystem) - Índices Históricos ---
+CDSE_AUTH_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
+CDSE_STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+CDSE_AUTHCFG_SETTING = "IEPNB_Tools/cdse_client_authcfg"
+
+# Banda(s) necesarias y fórmula (evalscript JS) por índice espectral.
+# Todas usan Sentinel-2 L2A. SCL se añade siempre para el enmascarado de nubes.
+# formula_legible/rango/interpretacion son solo para mostrar en la gráfica
+# (texto explicativo), no intervienen en el cálculo.
+INDICE_FORMULAS = {
+    "NDVI": {
+        "bandas": ["B04", "B08"],
+        "formula": "(samples.B08 - samples.B04) / (samples.B08 + samples.B04)",
+        "descripcion": "Índice de vegetación de diferencia normalizada",
+        "formula_legible": "(NIR − Rojo) / (NIR + Rojo)",
+        "rango": "-1 a 1",
+        "interpretacion": "Vegetación densa y sana: 0.6-0.9 · vegetación dispersa/estrés: 0.2-0.5 · "
+                          "suelo desnudo: 0.1-0.2 · agua o nubes: negativo.",
+    },
+    "NDWI": {
+        "bandas": ["B03", "B08"],
+        "formula": "(samples.B03 - samples.B08) / (samples.B03 + samples.B08)",
+        "descripcion": "Índice de agua de diferencia normalizada (McFeeters)",
+        "formula_legible": "(Verde − NIR) / (Verde + NIR)",
+        "rango": "-1 a 1",
+        "interpretacion": "Agua superficial: > 0.3 · suelo húmedo: cercano a 0 · "
+                          "vegetación o suelo seco: negativo.",
+    },
+    "NBR": {
+        "bandas": ["B08", "B12"],
+        "formula": "(samples.B08 - samples.B12) / (samples.B08 + samples.B12)",
+        "descripcion": "Índice normalizado de área quemada",
+        "formula_legible": "(NIR − SWIR2) / (NIR + SWIR2)",
+        "rango": "-1 a 1",
+        "interpretacion": "Vegetación sana: 0.1-0.5 · área recién quemada: muy negativo (hasta -0.5). "
+                          "La severidad real se mide comparando NBR antes/después (dNBR), no un valor aislado.",
+    },
+    "EVI": {
+        "bandas": ["B02", "B04", "B08"],
+        # En DN hay que pasar a reflectancia (/10000) antes de aplicar el "+1":
+        # con DN crudo ese término aditivo queda despreciable y el EVI sale mal.
+        "formula": "2.5 * ((samples.B08/10000) - (samples.B04/10000)) / "
+                   "((samples.B08/10000) + 6 * (samples.B04/10000) - 7.5 * (samples.B02/10000) + 1)",
+        "descripcion": "Índice de vegetación mejorado",
+        "formula_legible": "2.5 × (NIR − Rojo) / (NIR + 6×Rojo − 7.5×Azul + 1)",
+        "rango": "-1 a 1 (vegetación densa normalmente 0.2-0.8)",
+        "interpretacion": "Como el NDVI pero corrige la saturación en vegetación muy densa y el ruido "
+                          "atmosférico/de suelo — más fiable en zonas de biomasa alta.",
+    },
+    "NDMI": {
+        "bandas": ["B08", "B11"],
+        "formula": "(samples.B08 - samples.B11) / (samples.B08 + samples.B11)",
+        "descripcion": "Contenido de humedad de la vegetación (estrés hídrico)",
+        "formula_legible": "(NIR − SWIR1) / (NIR + SWIR1)",
+        "rango": "-1 a 1",
+        "interpretacion": "Valores altos: vegetación turgente, bien hidratada · valores bajos o "
+                          "en descenso: estrés hídrico, vegetación seca (mayor inflamabilidad).",
+    },
+    "GNDVI": {
+        "bandas": ["B03", "B08"],
+        "formula": "(samples.B08 - samples.B03) / (samples.B08 + samples.B03)",
+        "descripcion": "NDVI sensible a clorofila (detecta estrés antes que el NDVI)",
+        "formula_legible": "(NIR − Verde) / (NIR + Verde)",
+        "rango": "-1 a 1",
+        "interpretacion": "Más sensible al contenido de clorofila que el NDVI: suele detectar el "
+                          "inicio del estrés vegetal (por sequía, plaga...) antes que este.",
+    },
+    "SAVI": {
+        "bandas": ["B04", "B08"],
+        # L=0.5 es una constante en escala de reflectancia -> también hay
+        # que convertir DN a reflectancia aquí (igual que en EVI).
+        "formula": "((samples.B08/10000 - samples.B04/10000) / "
+                   "(samples.B08/10000 + samples.B04/10000 + 0.5)) * 1.5",
+        "descripcion": "NDVI corregido por suelo desnudo (vegetación dispersa/regenerando)",
+        "formula_legible": "((NIR − Rojo) / (NIR + Rojo + L)) × (1+L), con L=0.5",
+        "rango": "-1 a 1",
+        "interpretacion": "Igual que el NDVI pero atenúa el efecto del suelo visible entre plantas — "
+                          "más fiable justo después de un incendio, cuando la vegetación está regenerando "
+                          "y hay mucho suelo/ceniza expuestos.",
+    },
+    "BAI": {
+        "bandas": ["B04", "B08"],
+        "formula": "1 / (Math.pow(0.1 - samples.B04/10000, 2) + "
+                   "Math.pow(0.06 - samples.B08/10000, 2))",
+        "descripcion": "Resalta cicatrices de quemado (carbón/ceniza)",
+        "formula_legible": "1 / ((0.1 − Rojo)² + (0.06 − NIR)²)",
+        "rango": "0 en adelante, sin techo fijo (no está acotado entre -1 y 1 como los demás)",
+        "interpretacion": "Valores muy altos = carbón/ceniza reciente (poca reflectancia en rojo e "
+                          "infrarrojo cercano). Vegetación sana da valores bajos. Es el más sensible a "
+                          "quemados frescos, pero también el más ruidoso con sombras y suelos oscuros.",
+    },
+    "NDSI": {
+        "bandas": ["B03", "B11"],
+        "formula": "(samples.B03 - samples.B11) / (samples.B03 + samples.B11)",
+        "descripcion": "Índice de nieve de diferencia normalizada",
+        "formula_legible": "(Verde − SWIR1) / (Verde + SWIR1)",
+        "rango": "-1 a 1",
+        "interpretacion": "Nieve/hielo: normalmente > 0.4 (umbral estándar de clasificación) · "
+                          "vegetación o suelo: bajo o negativo. Ojo: el agua también da valores altos, "
+                          "así que un NDSI alto no distingue por sí solo nieve de una lámina de agua.",
+    },
+    "BSI": {
+        "bandas": ["B02", "B04", "B08", "B11"],
+        "formula": "((samples.B11 + samples.B04) - (samples.B08 + samples.B02)) / "
+                   "((samples.B11 + samples.B04) + (samples.B08 + samples.B02))",
+        "descripcion": "Índice de suelo desnudo",
+        "formula_legible": "((SWIR1+Rojo) − (NIR+Azul)) / ((SWIR1+Rojo) + (NIR+Azul))",
+        "rango": "-1 a 1",
+        "interpretacion": "Valores altos: suelo desnudo, superficie urbana o construida · valores bajos: "
+                          "vegetación densa o agua. Buen complemento al NDVI/SAVI para ver cuánto suelo "
+                          "queda expuesto tras un incendio, antes de que regenere la vegetación.",
+    },
+    "CIRE": {
+        "bandas": ["B05", "B07"],
+        "formula": "(samples.B07 / samples.B05) - 1",
+        "descripcion": "Índice de clorofila en el borde rojo (Chlorophyll Index Red Edge)",
+        "formula_legible": "(Red Edge 2 / Red Edge 1) − 1",
+        "rango": "0 en adelante (vegetación densa suele dar 2-8, sin techo fijo)",
+        "interpretacion": "Más sensible al contenido de clorofila que el NDVI o el GNDVI — suele detectar "
+                          "estrés vegetal (sequía, plaga, decaimiento) antes de que sea visible en el NDVI.",
+    },
+}
+
+# Agrupación temática para organizar el menú del botón. Un índice puede
+# aparecer en más de una categoría si tiene sentido (p.ej. NDSI en agua/nieve).
+CATEGORIAS_INDICES = {
+    "Vegetación": ["NDVI", "EVI", "SAVI", "GNDVI", "CIRE"],
+    "Agua y nieve": ["NDWI", "NDMI", "NDSI"],
+    "Suelo y quemado": ["NBR", "BAI", "BSI"],
+}
