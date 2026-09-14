@@ -148,7 +148,7 @@ Herramienta de teledetección integrada directamente en el plugin: permite consu
 | --- | --- | --- |
 | **Vegetación** | NDVI, EVI, SAVI, GNDVI, CIRE | Vigor y densidad de la vegetación, con variantes que corrigen suelo desnudo (SAVI), saturación en biomasa alta (EVI) o detectan estrés de clorofila más temprano (GNDVI, CIRE). |
 | **Agua y nieve** | NDWI, NDMI, NDSI | Agua superficial (NDWI), contenido de humedad de la vegetación/estrés hídrico (NDMI) y cobertura de nieve (NDSI). |
-| **Suelo y quemado** | NBR, BAI, BSI | Severidad de área quemada (NBR, BAI) y suelo desnudo expuesto, útil para seguimiento de regeneración post-incendio (BSI). |
+| **Incendios y suelo desnudo** | NBR, BAI, BSI | Severidad de área quemada (NBR, BAI) y suelo desnudo expuesto, útil para seguimiento de regeneración post-incendio (BSI). |
 
 Cada índice, dentro de la propia gráfica, incluye una ficha con su fórmula, rango típico de valores y cómo interpretarlos.
 
