@@ -786,5 +786,5 @@ INDICE_FORMULAS = {
 CATEGORIAS_INDICES = {
     "Vegetación": ["NDVI", "EVI", "SAVI", "GNDVI", "CIRE"],
     "Agua y nieve": ["NDWI", "NDMI", "NDSI"],
-    "Suelo y quemado": ["NBR", "BAI", "BSI"],
+    "Incendios y suelo desnudo": ["NBR", "BAI", "BSI"],
 }
