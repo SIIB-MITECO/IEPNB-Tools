@@ -1,15 +1,31 @@
+"""
+/***************************************************************************
+ * IEPNB Tools - Herramientas para el Inventario Español (MITECO)        *
+ * *
+ * Copyright (C) 2026 Rodrigo Saz-Orozco Maier (IEPNB - MITECO)          *
+ * Email: rsazorozco@miteco.es                                           *
+ * *
+ * This program is free software; you can redistribute it and/or modify  *
+ * it under the terms of the GNU General Public License as published by  *
+ * the Free Software Foundation; either version 3 of the License, or     *
+ * (at your option) any later version.                                   *
+ ***************************************************************************/
+
+Punto de entrada de la interfaz: construye el panel acoplable con sus
+pestañas (Identificar, Territorio, Especies, Servicios, Fototeca) y la
+fila de botones de capas de referencia, incluido el botón Copernicus
+que abre las galerías de índice histórico / firma espectral / ver imagen.
+"""
+
 import os
 from functools import partial
 from datetime import datetime, timezone
 
-
-# --- COMPATIBILIDAD QGIS 3 Y 4 ---
 from qgis.PyQt.QtCore import Qt, QUrl, QSize, QTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QDesktopServices
 from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
                                  QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                                 QToolButton, QMenu, QMessageBox, QApplication)
-
+                                 QToolButton, QDialog, QMessageBox, QApplication)
 
 from qgis.gui import QgsMapTool
 from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
@@ -20,9 +36,17 @@ from .territory import TerritoryTab
 from .species import SpeciesTab
 from .services_iepnb import ServicesIEPNBTab
 from .ceneam import CeneamTab
-from .config import CATALOGO_WMS, INDICE_FORMULAS, CATEGORIAS_INDICES
+from .config import CATALOGO_WMS, VER_IMAGEN_MAX_AREA_KM2
 from .indices_historicos import (obtener_credenciales_cdse, obtener_token_cdse,
                                  consultar_historico_indice, GraficaIndiceDialog)
+from .firma_espectral import (FirmaEspectralTool, DialogoFechaAproximada,
+                              buscar_mejor_fecha, consultar_firma_espectral,
+                              FirmaEspectralDialog)
+from .imagen_satelite import (ImagenPuntoTool, ImagenAreaTool,
+                              calcular_area_km2, descargar_imagen_punto,
+                              descargar_imagen_area, cargar_capa_imagen)
+from .galeria_indices import (GaleriaAccionesDialog, GaleriaPuntoAreaDialog,
+                              GaleriaEstiloDialog)
 
 
 class GoogleStreetViewTool(QgsMapTool):
@@ -68,18 +92,20 @@ class IepnbTools:
         self.plugin_dir = os.path.dirname(__file__)
         self.gsv_tool = None
         self.indice_tool = None
+        self.firma_tool = None
+        self.imagen_tool = None
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v 2.1.0", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v 2.1.1", self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v 2.1.0", self.action)
+        self.iface.addPluginToMenu("&IEPNB - Tools v 2.1.1", self.action)
 
     def unload(self):
         if self.action:
             self.iface.removeToolBarIcon(self.action)
-            self.iface.removePluginMenu("&IEPNB - Tools v 2.1.0", self.action)
+            self.iface.removePluginMenu("&IEPNB - Tools v 2.1.1", self.action)
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
@@ -89,7 +115,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v 2.1.0", self.iface.mainWindow())
+            self.dockwidget = QDockWidget("IEPNB - Tools v 2.1.1", self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
 
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
@@ -111,7 +137,7 @@ class IepnbTools:
                 icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.TransformationMode.SmoothTransformation))
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v 2.1.0")
+            title_lbl = QLabel("IEPNB - Tools v 2.1.1")
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
@@ -247,25 +273,12 @@ class IepnbTools:
                 elif keys == "GSV":
                     btn.clicked.connect(self.activate_gsv)
                 elif keys == "IDX":
-                    btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-                    btn.setStyleSheet(
-                        btn_style + " QToolButton::menu-indicator { image: none; }")
-                    menu = QMenu(btn)
-                    menu.setToolTipsVisible(True)  # necesario para que se vean los tooltips de las acciones
-                    for categoria, indices in CATEGORIAS_INDICES.items():
-                        submenu = menu.addMenu(categoria)
-                        submenu.setToolTipsVisible(True)
-                        for indice in indices:
-                            accion = submenu.addAction(indice)
-                            meta = INDICE_FORMULAS.get(indice, {})
-                            if meta:
-                                accion.setToolTip(
-                                    f"{meta.get('descripcion', '')}\n"
-                                    f"Fórmula: {meta.get('formula_legible', '')}\n"
-                                    f"Rango: {meta.get('rango', '')}")
-                            accion.triggered.connect(
-                                partial(self.activate_indice_historico, indice))
-                    btn.setMenu(menu)
+                    # Antes desplegaba un QMenu anidado (menú > submenú >
+                    # submenú); ahora abre una galería de tarjetas de
+                    # colores (ver galeria_indices.py), más visual y con
+                    # el mismo recorrido de pasos.
+                    btn.setStyleSheet(btn_style)
+                    btn.clicked.connect(self.abrir_galeria_copernicus)
                 else:
                     sub_group = "Banco de Datos de la Naturaleza (BDN) - IEPNB" if icon_name == "BDN.png" else None
                     btn.clicked.connect(
@@ -403,6 +416,171 @@ class IepnbTools:
 
         dialogo = GraficaIndiceDialog(indice, lat, lon, serie, self.iface.mainWindow())
         dialogo.exec()
+
+    def activate_firma_espectral(self):
+        if not self.firma_tool:
+            self.firma_tool = FirmaEspectralTool(self.iface.mapCanvas(), self.on_punto_firma)
+        self.iface.mapCanvas().setMapTool(self.firma_tool)
+        self.iface.mainWindow().statusBar().showMessage(
+            "Firma espectral: haz clic en el mapa sobre el punto de interés.", 5000)
+
+    def on_punto_firma(self, lat, lon):
+        # 1) Fecha aproximada
+        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow())
+        if dialogo_fecha.exec() != dialogo_fecha.DialogCode.Accepted:
+            return
+        fecha_pedida = dialogo_fecha.fecha_seleccionada()
+
+        # 2) Credenciales CDSE (mismas que el índice histórico)
+        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
+        if not client_id:
+            return
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.iface.mainWindow().statusBar().showMessage(
+            "Buscando la adquisición más despejada cerca de esa fecha...", 0)
+        try:
+            token = obtener_token_cdse(client_id, client_secret)
+            fecha_real, fraccion_valida = buscar_mejor_fecha(token, lat, lon, fecha_pedida)
+            if fecha_real is None:
+                QApplication.restoreOverrideCursor()
+                self.iface.mainWindow().statusBar().clearMessage()
+                QMessageBox.information(
+                    self.iface.mainWindow(), "Firma espectral",
+                    "No se ha encontrado ninguna adquisición de Sentinel-2 en ese punto "
+                    "dentro de ± 15 días de la fecha elegida. Prueba con otra fecha.")
+                return
+
+            self.iface.mainWindow().statusBar().showMessage(
+                f"Consultando firma espectral del {fecha_real.strftime('%d/%m/%Y')}...", 0)
+            reflectancias = consultar_firma_espectral(token, lat, lon, fecha_real)
+        except Exception as exc:
+            QApplication.restoreOverrideCursor()
+            self.iface.mainWindow().statusBar().clearMessage()
+            QMessageBox.critical(self.iface.mainWindow(), "Firma espectral", str(exc))
+            return
+
+        QApplication.restoreOverrideCursor()
+        self.iface.mainWindow().statusBar().clearMessage()
+
+        dialogo = FirmaEspectralDialog(lat, lon, fecha_pedida, fecha_real, fraccion_valida,
+                                       reflectancias, self.iface.mainWindow())
+        dialogo.exec()
+
+    def abrir_galeria_copernicus(self):
+        """Punto de entrada del botón Copernicus: sustituye al antiguo
+        QMenu anidado por la galería de tarjetas (galeria_indices.py)."""
+        dialogo = GaleriaAccionesDialog(self.iface.mainWindow())
+        if dialogo.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        accion, dato = dialogo.resultado
+        if accion == "firma":
+            self.activate_firma_espectral()
+        elif accion == "indice":
+            self.activate_indice_historico(dato)
+        elif accion == "ver_imagen":
+            self.abrir_galeria_ver_imagen()
+
+    def abrir_galeria_ver_imagen(self):
+        """Segundo y tercer paso de 'Ver imagen': punto/área y luego
+        estilo (RGB o índice), cada uno en su propia galería de tarjetas."""
+        dialogo_ubicacion = GaleriaPuntoAreaDialog(self.iface.mainWindow())
+        if dialogo_ubicacion.exec() != QDialog.DialogCode.Accepted:
+            return
+        modo = dialogo_ubicacion.resultado
+
+        dialogo_estilo = GaleriaEstiloDialog(self.iface.mainWindow())
+        if dialogo_estilo.exec() != QDialog.DialogCode.Accepted:
+            return
+        estilo = dialogo_estilo.resultado
+
+        if modo == "punto":
+            self.activate_ver_imagen_punto(estilo)
+        else:
+            self.activate_ver_imagen_area(estilo)
+
+    def activate_ver_imagen_punto(self, estilo):
+        self.imagen_tool = ImagenPuntoTool(
+            self.iface.mapCanvas(), partial(self.on_punto_imagen, estilo))
+        self.iface.mapCanvas().setMapTool(self.imagen_tool)
+        self.iface.mainWindow().statusBar().showMessage(
+            f"Ver imagen ({estilo}): haz clic en el mapa sobre el punto de interés.", 5000)
+
+    def activate_ver_imagen_area(self, estilo):
+        self.imagen_tool = ImagenAreaTool(self.iface.mapCanvas())
+        self.imagen_tool.polygon_finished.connect(partial(self.on_area_imagen, estilo))
+        self.iface.mapCanvas().setMapTool(self.imagen_tool)
+        self.iface.mainWindow().statusBar().showMessage(
+            f"Ver imagen ({estilo}): clic izquierdo para añadir vértices, "
+            f"clic derecho para terminar el área (máx. {VER_IMAGEN_MAX_AREA_KM2} km²).", 8000)
+
+    def _procesar_fecha_y_descargar(self, estilo, lat_busqueda, lon_busqueda, descargar_fn, etiqueta_ubicacion):
+        """Común a punto y área: pide fecha aproximada, busca el día más
+        despejado (evaluado en lat_busqueda/lon_busqueda -- el punto en sí,
+        o el centroide del área dibujada) y descarga+carga la imagen."""
+        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow())
+        if dialogo_fecha.exec() != dialogo_fecha.DialogCode.Accepted:
+            return
+        fecha_pedida = dialogo_fecha.fecha_seleccionada()
+
+        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
+        if not client_id:
+            return
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.iface.mainWindow().statusBar().showMessage(
+            "Buscando la adquisición más despejada cerca de esa fecha...", 0)
+        try:
+            token = obtener_token_cdse(client_id, client_secret)
+            fecha_real, fraccion_valida = buscar_mejor_fecha(token, lat_busqueda, lon_busqueda, fecha_pedida)
+            if fecha_real is None:
+                QApplication.restoreOverrideCursor()
+                self.iface.mainWindow().statusBar().clearMessage()
+                QMessageBox.information(
+                    self.iface.mainWindow(), "Ver imagen",
+                    "No se ha encontrado ninguna adquisición de Sentinel-2 en ese punto "
+                    "dentro de ± 15 días de la fecha elegida. Prueba con otra fecha.")
+                return
+
+            self.iface.mainWindow().statusBar().showMessage(
+                f"Descargando imagen ({estilo}) del {fecha_real.strftime('%d/%m/%Y')}...", 0)
+            ruta = descargar_fn(token, fecha_real)
+            cargar_capa_imagen(ruta, estilo, fecha_real, etiqueta_ubicacion)
+        except Exception as exc:
+            QApplication.restoreOverrideCursor()
+            self.iface.mainWindow().statusBar().clearMessage()
+            QMessageBox.critical(self.iface.mainWindow(), "Ver imagen", str(exc))
+            return
+
+        QApplication.restoreOverrideCursor()
+        dias_offset = abs((fecha_real.date() - fecha_pedida.date()).days)
+        aviso_fecha = (f" (pedida: {fecha_pedida.strftime('%d/%m/%Y')}, {dias_offset} días de diferencia)"
+                      if dias_offset > 0 else "")
+        self.iface.mainWindow().statusBar().showMessage(
+            f"Imagen cargada — {fecha_real.strftime('%d/%m/%Y')}{aviso_fecha} · "
+            f"cobertura despejada en el punto de referencia: {fraccion_valida * 100:.0f}%", 8000)
+
+    def on_punto_imagen(self, estilo, lat, lon):
+        self._procesar_fecha_y_descargar(
+            estilo, lat, lon,
+            descargar_fn=lambda token, fecha_real: descargar_imagen_punto(token, lat, lon, estilo, fecha_real),
+            etiqueta_ubicacion=f"{lat:.4f}, {lon:.4f}")
+
+    def on_area_imagen(self, estilo, geom_wgs84):
+        area_km2 = calcular_area_km2(geom_wgs84)
+        if area_km2 > VER_IMAGEN_MAX_AREA_KM2:
+            QMessageBox.warning(
+                self.iface.mainWindow(), "Ver imagen",
+                f"El área dibujada mide {area_km2:.1f} km², por encima del límite de "
+                f"{VER_IMAGEN_MAX_AREA_KM2} km². Dibuja un área más pequeña.")
+            return
+
+        centroide = geom_wgs84.centroid().asPoint()
+        self._procesar_fecha_y_descargar(
+            estilo, centroide.y(), centroide.x(),
+            descargar_fn=lambda token, fecha_real: descargar_imagen_area(token, geom_wgs84, estilo, fecha_real),
+            etiqueta_ubicacion=f"área {area_km2:.1f} km²")
 
     def load_multiple_categories(self, categories, visible_layer_name=None, main_group_name="Servicios MITECO",
                                  sub_group_name=None):

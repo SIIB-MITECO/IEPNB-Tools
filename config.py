@@ -11,31 +11,23 @@
  * (at your option) any later version.                                     *
  ***************************************************************************/
 
---- ACTUALIZADO tras revisión del Directorio de Servicios MITECO ---
-Cambios principales respecto a la versión anterior:
-  - Agua y Costas migrados de wms.mapama.gob.es/sig/... a
-    gis.miteco.gob.es/geoserver/agua|costas/<capa>/wms (nombres de capa
-    GeoServer nativos, ya no INSPIRE genéricos tipo HY.PhysicalWaters...).
-  - Añadidos nuevos servicios de Biodiversidad (Hábitat Art17/12, IEZH,
-    Atlas de Paisajes, Regiones Biogeográficas, Erosión, Incendios
-    Forestales por frecuencia, etc.) publicados en el directorio pero
-    no incluidos hasta ahora.
-  - GEOPARQUE (convenio_internacional) ya NO aparece listado en el
-    directorio oficial actual: se mantiene en el config pero revisar
-    si sigue vigente.
-  - Montes de Utilidad Pública: el directorio muestra una capa
+Configuración central del plugin: catálogo de servicios WMS/WFS del
+Directorio de Servicios MITECO, fórmulas de los índices espectrales y
+demás parámetros compartidos.
+
+Notas de mantenimiento pendientes de confirmar:
+  - GEOPARQUE (convenio_internacional) ya no aparece en el directorio
+    oficial actual; revisar si sigue vigente.
+  - Montes de Utilidad Pública: el directorio ofrece una capa
     "propiedad_montes_2025" que podría sustituir a "propiedad_montes"
-    (sin año) usada en CONFIG_IDENTIFY/CONFIG_TERRITORY; no se ha
-    confirmado con capabilities, así que NO se ha tocado ese WFS.
+    (sin año); no se ha confirmado con capabilities.
   - EIKOS (Alertas Anuales/Mensuales) no aparece en el directorio
-    público: probablemente sea un servicio interno IEPNB; se deja
-    igual por no encontrar confirmación de cambio ni de baja.
+    público; probablemente sea un servicio interno IEPNB.
   - LULUCF, PNOA Histórico, Corine Land Cover y Copernicus HRL son
-    servicios externos (no MITECO/IEPNB): no se han verificado en esta
-    revisión y se mantienen igual.
+    servicios externos (no MITECO/IEPNB) sin verificar en la última
+    revisión.
 """
 
-# --- CAMBIO PARA COMPATIBILIDAD QGIS 3 Y 4 ---
 from qgis.PyQt.QtGui import QColor
 
 # --- SERVIDORES BASE ---
@@ -661,6 +653,13 @@ URL_FICHA_EIDOS = "https://iepnb.gob.es/areas-tematicas/especies-silvestres/eido
 # --- CDSE (Copernicus Data Space Ecosystem) - Índices Históricos ---
 CDSE_AUTH_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 CDSE_STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+CDSE_PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
+
+# Límite de superficie para "Ver Imagen -> Dibujar área", para que no se
+# pueda pedir un polígono descomunal (coste y tiempo de descarga se disparan
+# con el área). 25 km² equivale aprox. a un cuadrado de 5x5 km.
+VER_IMAGEN_MAX_AREA_KM2 = 100
+VER_IMAGEN_MAX_PX = 1024  # tope de píxeles por lado, aunque el área quepa dentro del límite
 CDSE_AUTHCFG_SETTING = "IEPNB_Tools/cdse_client_authcfg"
 
 # Banda(s) necesarias y fórmula (evalscript JS) por índice espectral.
@@ -788,3 +787,108 @@ CATEGORIAS_INDICES = {
     "Agua y nieve": ["NDWI", "NDMI", "NDSI"],
     "Incendios y suelo desnudo": ["NBR", "BAI", "BSI"],
 }
+
+# --- Firma espectral: bandas de Sentinel-2 L2A (se excluye B10, banda de
+# cirros, que no existe en el producto L2A) con su longitud de onda central
+# (nm) y la región del espectro a la que pertenece, para el eje X de la
+# gráfica y el sombreado de fondo por región.
+BANDAS_S2 = [
+    {"id": "B01", "nm": 443, "region": "Aerosol/costero", "color": "#7e57c2"},
+    {"id": "B02", "nm": 490, "region": "Visible", "color": "#1e88e5"},   # azul real
+    {"id": "B03", "nm": 560, "region": "Visible", "color": "#43a047"},   # verde real
+    {"id": "B04", "nm": 665, "region": "Visible", "color": "#e53935"},   # rojo real
+    {"id": "B05", "nm": 705, "region": "Red Edge", "color": "#c2185b"},
+    {"id": "B06", "nm": 740, "region": "Red Edge", "color": "#ad1457"},
+    {"id": "B07", "nm": 783, "region": "Red Edge", "color": "#880e4f"},
+    {"id": "B08", "nm": 842, "region": "NIR", "color": "#b71c1c"},       # NIR, convenio falso color
+    {"id": "B8A", "nm": 865, "region": "NIR", "color": "#8e1414"},
+    {"id": "B09", "nm": 945, "region": "Vapor de agua", "color": "#546e7a"},
+    {"id": "B11", "nm": 1610, "region": "SWIR", "color": "#8d6e63"},     # SWIR, convenio falso color
+    {"id": "B12", "nm": 2190, "region": "SWIR", "color": "#5d4037"},
+]
+
+# Límites aproximados (nm) de cada región, para las franjas de fondo de la
+# gráfica de firma espectral, y su color (tonos suaves, coherentes con los
+# colores reales/de convenio de BANDAS_S2 de arriba).
+REGIONES_ESPECTRO = [
+    {"nombre": "Aerosol/costero", "desde": 420, "hasta": 460, "color": "#d1c4e9"},
+    {"nombre": "Visible", "desde": 460, "hasta": 700, "color": "#e8f0e3"},
+    {"nombre": "Red Edge", "desde": 700, "hasta": 800, "color": "#f8bbd0"},
+    {"nombre": "NIR", "desde": 800, "hasta": 900, "color": "#ffcdd2"},
+    {"nombre": "Vapor de agua", "desde": 900, "hasta": 980, "color": "#cfd8dc"},
+    {"nombre": "SWIR", "desde": 1450, "hasta": 2300, "color": "#d7ccc8"},
+]
+
+# Compresión visual del hueco 945-1610nm (sin ninguna banda de por medio) en
+# el eje X real de la firma espectral, para no desperdiciar la mitad del
+# ancho de la gráfica en un tramo vacío. GAP_COMPRESION=1 sería sin comprimir.
+GAP_DESDE_NM = 945
+GAP_HASTA_NM = 1610
+GAP_COMPRESION = 4
+
+# Ventana de búsqueda (± días) alrededor de la fecha aproximada pedida por
+# el usuario, para localizar la adquisición real más despejada de nubes.
+FIRMA_VENTANA_DIAS_BUSQUEDA = 15
+
+# --- Firmas de referencia para comparar con la medida en el punto ---
+# Las 5 primeras son la media de espectros reales medidos, agregados por la
+# librería "earthlib" (github.com/earth-chris/earthlib) a partir de fuentes
+# públicas: ICRAF Global Soil Spectral Library (suelo), Joint Fire Science
+# Program (quemado), UCSB Urban Reflectance Spectra (urbano), USGS Spectral
+# Library v7 (NPV), y un modelo PROSAIL de dosel genérico (vegetación sana,
+# no diferenciado por cultivo/especie). Ya remuestreadas a nuestras 12 bandas.
+# Agua y nieve NO proceden de esa base de datos (no la cubre): son valores
+# típicos ampliamente documentados en literatura de teledetección, no la
+# media de espectros medidos concretos -- por eso llevan fuente distinta.
+REFERENCIAS_FIRMA = {
+    "Vegetación sana": {
+        "color": "#43a047",
+        "fuente": "earthlib (modelo PROSAIL, dosel genérico) — n=2000",
+        "valores": {"B01": 0.023, "B02": 0.038, "B03": 0.084, "B04": 0.035,
+                   "B05": 0.135, "B06": 0.380, "B07": 0.445, "B08": 0.448,
+                   "B8A": 0.449, "B09": 0.439, "B11": 0.185, "B12": 0.069},
+    },
+    "Vegetación seca (NPV)": {
+        "color": "#c9a227",
+        "fuente": "earthlib (USGS splib07 — hojarasca, corteza, madera) — n=104",
+        "valores": {"B01": 0.077, "B02": 0.096, "B03": 0.122, "B04": 0.168,
+                   "B05": 0.194, "B06": 0.221, "B07": 0.245, "B08": 0.271,
+                   "B8A": 0.286, "B09": 0.314, "B11": 0.398, "B12": 0.294},
+    },
+    "Suelo desnudo": {
+        "color": "#a1887f",
+        "fuente": "earthlib (ICRAF Global Soil Spectral Library) — n=4248",
+        "valores": {"B01": 0.106, "B02": 0.135, "B03": 0.199, "B04": 0.291,
+                   "B05": 0.317, "B06": 0.339, "B07": 0.355, "B08": 0.361,
+                   "B8A": 0.364, "B09": 0.375, "B11": 0.469, "B12": 0.424},
+    },
+    "Urbano/construido": {
+        "color": "#757575",
+        "fuente": "earthlib (UCSB Urban Reflectance Spectra) — n=888",
+        "valores": {"B01": 0.113, "B02": 0.124, "B03": 0.145, "B04": 0.168,
+                   "B05": 0.173, "B06": 0.178, "B07": 0.180, "B08": 0.181,
+                   "B8A": 0.181, "B09": 0.182, "B11": 0.204, "B12": 0.193},
+    },
+    "Quemado/carbón": {
+        "color": "#3e2723",
+        "fuente": "earthlib (Joint Fire Science Program) — n=21",
+        "valores": {"B01": 0.045, "B02": 0.049, "B03": 0.056, "B04": 0.069,
+                   "B05": 0.075, "B06": 0.081, "B07": 0.086, "B08": 0.093,
+                   "B8A": 0.097, "B09": 0.106, "B11": 0.194, "B12": 0.227},
+    },
+    "Agua": {
+        "color": "#1565c0",
+        "fuente": "valores típicos de literatura (agua clara, no de base de datos medida)",
+        "valores": {"B01": 0.05, "B02": 0.05, "B03": 0.04, "B04": 0.02,
+                   "B05": 0.01, "B06": 0.008, "B07": 0.006, "B08": 0.005,
+                   "B8A": 0.004, "B09": 0.003, "B11": 0.001, "B12": 0.001},
+    },
+    "Nieve": {
+        "color": "#00acc1",
+        "fuente": "valores típicos de literatura (nieve limpia, no de base de datos medida)",
+        "valores": {"B01": 0.90, "B02": 0.92, "B03": 0.90, "B04": 0.88,
+                   "B05": 0.85, "B06": 0.82, "B07": 0.80, "B08": 0.78,
+                   "B8A": 0.75, "B09": 0.65, "B11": 0.25, "B12": 0.10},
+    },
+}
+

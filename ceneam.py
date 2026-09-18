@@ -15,13 +15,11 @@
 import webbrowser
 import re
 
-# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                  QLineEdit, QPushButton, QScrollArea, QFrame,
                                  QFileDialog)
 from qgis.PyQt.QtCore import QUrl, Qt
 from qgis.PyQt.QtNetwork import QNetworkRequest, QNetworkReply
-# ---------------------------------------------
 
 from qgis.core import QgsNetworkAccessManager
 from .species import ImageLoader

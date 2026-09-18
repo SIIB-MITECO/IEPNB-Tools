@@ -18,7 +18,6 @@ import csv
 import tempfile
 import unicodedata
 
-# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
                                  QGridLayout, QLabel, QComboBox, QLineEdit,
                                  QPushButton, QTableWidget, QHeaderView,

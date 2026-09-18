@@ -12,12 +12,10 @@
  ***************************************************************************/
 """
 
-# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                  QLineEdit, QTreeWidget, QTreeWidgetItem,
                                  QPushButton)
 from qgis.PyQt.QtCore import Qt
-# ---------------------------------------------
 
 from qgis.core import (QgsApplication, QgsProject, QgsRasterLayer,
                        QgsMessageLog, Qgis)

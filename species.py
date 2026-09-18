@@ -18,7 +18,6 @@ import tempfile
 import webbrowser
 import random
 
-# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QLabel, QDialog, QVBoxLayout, QScrollArea,
                                  QWidget, QGridLayout, QFrame, QPushButton,
                                  QLineEdit, QHBoxLayout, QTableWidget,

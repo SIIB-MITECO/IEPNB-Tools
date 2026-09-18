@@ -20,7 +20,6 @@ import csv
 import unicodedata
 import datetime
 
-# --- IMPORTACIONES LIMPIAS Y EXPLÍCITAS ---
 from qgis.PyQt.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                  QPushButton, QLabel, QTableWidget,
                                  QHeaderView, QFileDialog, QMessageBox,
