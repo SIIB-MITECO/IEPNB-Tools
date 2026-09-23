@@ -658,7 +658,7 @@ CDSE_PROCESS_URL = "https://sh.dataspace.copernicus.eu/api/v1/process"
 # Límite de superficie para "Ver Imagen -> Dibujar área", para que no se
 # pueda pedir un polígono descomunal (coste y tiempo de descarga se disparan
 # con el área). 25 km² equivale aprox. a un cuadrado de 5x5 km.
-VER_IMAGEN_MAX_AREA_KM2 = 100
+VER_IMAGEN_MAX_AREA_KM2 = 1000
 VER_IMAGEN_MAX_PX = 1024  # tope de píxeles por lado, aunque el área quepa dentro del límite
 CDSE_AUTHCFG_SETTING = "IEPNB_Tools/cdse_client_authcfg"
 

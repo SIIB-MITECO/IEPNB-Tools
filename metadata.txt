@@ -55,7 +55,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
 
  Soporte: buzon-bdatos@miteco.es
 
-version=2.1.1
+version=2.1.2
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
@@ -63,6 +63,9 @@ repository=https://github.com/SIIB-MITECO/IEPNB-Tools
 homepage=https://plugins.qgis.org/plugins/IEPNB_Tools/
 tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,pnoa,copernicus,sentinel-2,sentinel,ndvi,vegetation-index,spectral-indices,time-series,cdse,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature,lulucf,calidad-ambiental,costas,qgis4
 changelog=
+ Versión 2.1.2:
+     - Se aumente el limite de consulta imagen copernicus a 1000 km2
+
  Versión 2.1.1:
      - Rediseñada la selección del botón Copernicus: el antiguo menú desplegable anidado se sustituye por una galería de tarjetas visuales, agrupadas por categoría (Vegetación, Agua y nieve, Incendios y suelo desnudo) con icono, color y tooltip propios para cada índice, firma espectral y ver imagen.
      - Nueva funcionalidad: Ver Imagen. Desde la galería del botón Copernicus, "Ver imagen" permite elegir estilo (Color real, Falso color infrarrojo, o cualquiera de los 11 índices espectrales) y hacer clic en un punto (2x2 km fijos) o dibujar un área a mano (límite de 100 km²) para descargar la imagen Sentinel-2 real de esa zona en la fecha despejada más cercana a la pedida, cargándola directamente como capa ráster georreferenciada en el proyecto (Process API de CDSE). Los índices se descargan como valor real de una sola banda (no como color ya cocinado), con un estilo de QGIS aplicado automáticamente para que se vean coloreados igual, pero permitiendo consultar el valor exacto de cada píxel o reclasificarlo. El área dibujada se recorta a su forma exacta, no solo a su rectángulo envolvente.
