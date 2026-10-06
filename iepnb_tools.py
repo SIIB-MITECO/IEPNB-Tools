@@ -49,6 +49,24 @@ from .galeria_indices import (GaleriaAccionesDialog, GaleriaPuntoAreaDialog,
                               GaleriaEstiloDialog)
 
 
+def _leer_version():
+    """Versión del plugin según metadata.txt: así las cabeceras y el menú
+    nunca quedan desfasados al subir de versión."""
+    try:
+        ruta = os.path.join(os.path.dirname(__file__), "metadata.txt")
+        with open(ruta, encoding="utf-8") as f:
+            for linea in f:
+                if linea.startswith("version="):
+                    return linea.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+_VERSION = _leer_version()
+TITULO_PLUGIN = "IEPNB - Tools" + (f" v {_VERSION}" if _VERSION else "")
+
+
 class GoogleStreetViewTool(QgsMapTool):
     def __init__(self, canvas):
         super().__init__(canvas)
@@ -97,15 +115,15 @@ class IepnbTools:
 
     def initGui(self):
         icon_path = os.path.join(self.plugin_dir, 'icon.png')
-        self.action = QAction(QIcon(icon_path), "IEPNB - Tools v 2.1.1", self.iface.mainWindow())
+        self.action = QAction(QIcon(icon_path), TITULO_PLUGIN, self.iface.mainWindow())
         self.action.triggered.connect(self.run)
         self.iface.addToolBarIcon(self.action)
-        self.iface.addPluginToMenu("&IEPNB - Tools v 2.1.1", self.action)
+        self.iface.addPluginToMenu("&" + TITULO_PLUGIN, self.action)
 
     def unload(self):
         if self.action:
             self.iface.removeToolBarIcon(self.action)
-            self.iface.removePluginMenu("&IEPNB - Tools v 2.1.1", self.action)
+            self.iface.removePluginMenu("&" + TITULO_PLUGIN, self.action)
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
@@ -115,7 +133,7 @@ class IepnbTools:
 
     def run(self):
         if not self.dockwidget:
-            self.dockwidget = QDockWidget("IEPNB - Tools v 2.1.1", self.iface.mainWindow())
+            self.dockwidget = QDockWidget(TITULO_PLUGIN, self.iface.mainWindow())
             self.dockwidget.setObjectName("IEPNBToolsDockWidget")
 
             self.gsv_tool = GoogleStreetViewTool(self.iface.mapCanvas())
@@ -137,7 +155,7 @@ class IepnbTools:
                 icon_header_lbl.setPixmap(QPixmap(path_icon).scaledToHeight(24, Qt.TransformationMode.SmoothTransformation))
             header_layout.addWidget(icon_header_lbl)
 
-            title_lbl = QLabel("IEPNB - Tools v 2.1.1")
+            title_lbl = QLabel(TITULO_PLUGIN)
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()

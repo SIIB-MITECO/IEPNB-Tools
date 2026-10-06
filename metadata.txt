@@ -55,7 +55,7 @@ about=Herramienta técnica de la Dirección General de Biodiversidad, Bosques y 
 
  Soporte: buzon-bdatos@miteco.es
 
-version=2.1.2
+version=2.1.3
 author=IEPNB - MITECO
 email=buzon-bdatos@miteco.es
 tracker=https://github.com/SIIB-MITECO/IEPNB-Tools/issues
@@ -63,6 +63,10 @@ repository=https://github.com/SIIB-MITECO/IEPNB-Tools
 homepage=https://plugins.qgis.org/plugins/IEPNB_Tools/
 tags=biodiversidad,biodiversity,species,especies,conservation,miteco,iepnb,eidos,enp,rn2000,mup,wms,pnoa,copernicus,sentinel-2,sentinel,ndvi,vegetation-index,spectral-indices,time-series,cdse,analysis,reports,informes,spain,españa,etrs89,recan95,eikos,streetview,environment,nature,lulucf,calidad-ambiental,costas,qgis4
 changelog=
+ Versión 2.1.3:
+     - Exportación de gráficas de Copernicus: nuevo botón "Exportar" en el Índice Histórico y en la Firma Espectral, para guardar la gráfica como imagen (PNG, JPG, SVG o PDF, tal y como se ve en pantalla, con la atribución de Copernicus) o los datos como CSV. En el Índice Histórico el CSV recoge el periodo mostrado (valor de cada observación y curva suavizada, y el segundo índice si se está comparando); en la Firma Espectral, la reflectancia de cada banda y las referencias superpuestas. Se puede elegir CSV para Excel en español (separador ";" y coma decimal) o CSV estándar (separador "," y punto decimal).
+     - Servicios Web: nuevos favoritos. El botón "☆ Favorito" (o el menú contextual con clic derecho) marca las capas de uso frecuente, que aparecen en un grupo "⭐ Favoritos" siempre arriba del árbol y se conservan entre sesiones de QGIS.
+
  Versión 2.1.2:
      - Se aumente el limite de consulta imagen copernicus a 1000 km2
 

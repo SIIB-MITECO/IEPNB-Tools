@@ -31,6 +31,7 @@ from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
 
 from .config import (CDSE_STATS_URL, BANDAS_S2, REGIONES_ESPECTRO, FIRMA_VENTANA_DIAS_BUSQUEDA,
                      GAP_DESDE_NM, GAP_HASTA_NM, GAP_COMPRESION, REFERENCIAS_FIRMA)
+from .exportar import crear_boton_exportar, exportar_figura, exportar_csv
 from .indices_historicos import punto_a_poligono
 
 # --- Matplotlib embebido: compatible con QGIS3 (Qt5) y QGIS4 (Qt6) ---
@@ -365,6 +366,7 @@ class FirmaEspectralDialog(QDialog):
             return
 
         self.reflectancias = reflectancias
+        self.lat, self.lon, self.fecha_real = lat, lon, fecha_real
         self.referencias_activas = []  # nombres de REFERENCIAS_FIRMA a superponer
 
         # --- Aviso de qué fecha real se ha usado ---
@@ -450,11 +452,40 @@ class FirmaEspectralDialog(QDialog):
 
         fila_botones = QHBoxLayout()
         fila_botones.addStretch()
+        fila_botones.addWidget(crear_boton_exportar(
+            self, self._exportar_imagen, self._exportar_csv))
         btn_cerrar = QPushButton("Cerrar")
         btn_cerrar.setStyleSheet("QPushButton { padding: 5px 18px; border-radius: 4px; }")
         btn_cerrar.clicked.connect(self.accept)
         fila_botones.addWidget(btn_cerrar)
         layout.addLayout(fila_botones)
+
+    def _nombre_base_exportacion(self):
+        return (f"firma_espectral_{self.lat:.5f}_{self.lon:.5f}_"
+                f"{self.fecha_real.strftime('%Y-%m-%d')}")
+
+    def _exportar_imagen(self):
+        exportar_figura(self, self.fig, self._nombre_base_exportacion(),
+                        artistas_ocultos=[self.hover_marker])
+
+    def _exportar_csv(self):
+        """Una fila por banda con su reflectancia (0-1); si hay referencias
+        superpuestas en la gráfica, una columna más por cada una."""
+        nombres_ref = list(self.referencias_activas)
+        cabecera = ["banda", "longitud_onda_nm", "region", "reflectancia"]
+        cabecera += [f"ref_{n}" for n in nombres_ref]
+        filas = []
+        for banda in BANDAS_S2:
+            if banda["id"] not in self.reflectancias:
+                continue
+            fila = [banda["id"], banda["nm"], banda["region"],
+                    float(self.reflectancias[banda["id"]])]
+            for nombre in nombres_ref:
+                valor = REFERENCIAS_FIRMA[nombre]["valores"].get(banda["id"])
+                fila.append(float(valor) if valor is not None else None)
+            filas.append(fila)
+        exportar_csv(self, self._nombre_base_exportacion(), cabecera, filas,
+                     detalle=f"Imagen Sentinel-2 del {self.fecha_real.strftime('%d/%m/%Y')}.")
 
     def _menu_referencias(self):
         menu = QMenu(self)

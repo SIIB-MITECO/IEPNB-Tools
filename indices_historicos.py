@@ -32,6 +32,7 @@ from qgis.core import (QgsApplication, QgsAuthMethodConfig, QgsNetworkAccessMana
 
 from .config import (CDSE_AUTH_URL, CDSE_STATS_URL,
                      CDSE_AUTHCFG_SETTING, INDICE_FORMULAS, CATEGORIAS_INDICES)
+from .exportar import crear_boton_exportar, exportar_figura, exportar_csv
 
 # --- Matplotlib embebido: compatible con QGIS3 (Qt5) y QGIS4 (Qt6) ---
 try:
@@ -389,6 +390,12 @@ def _media_movil(valores, ventana):
     ]
 
 
+def _ventana_suavizado(n):
+    """Ventana de la media móvil según el número de observaciones: más ancha
+    cuantos más puntos haya (la misma lógica para dibujar y para exportar)."""
+    return 9 if n >= 200 else (5 if n >= 60 else (3 if n >= 20 else 1))
+
+
 class GraficaIndiceDialog(QDialog):
     def __init__(self, indice, lat, lon, serie, parent=None):
         super().__init__(parent)
@@ -500,6 +507,8 @@ class GraficaIndiceDialog(QDialog):
 
         fila_botones = QHBoxLayout()
         fila_botones.addStretch()
+        fila_botones.addWidget(crear_boton_exportar(
+            self, self._exportar_imagen, self._exportar_csv))
         btn_cerrar = QPushButton("Cerrar")
         btn_cerrar.setStyleSheet(
             "QPushButton { padding: 5px 18px; border-radius: 4px; }")
@@ -637,8 +646,10 @@ class GraficaIndiceDialog(QDialog):
             self.canvas.draw()
             self.info.setText("0 observaciones en el periodo seleccionado")
             self._fechas_num = []
+            self._fechas_dt = []
             self._valores_brutos = []
             self._valores_linea = []
+            self._fechas_dt2, self._valores_brutos2, self._valores_linea2 = [], [], []
             self.hover_marker = None
             return
 
@@ -649,7 +660,7 @@ class GraficaIndiceDialog(QDialog):
 
         # Media móvil para suavizar el ruido de nubes residual; ventana más
         # ancha cuantos más puntos haya.
-        ventana = 9 if n >= 200 else (5 if n >= 60 else (3 if n >= 20 else 1))
+        ventana = _ventana_suavizado(n)
         suavizado = _media_movil(valores, ventana)
 
         if ventana > 1:
@@ -682,7 +693,7 @@ class GraficaIndiceDialog(QDialog):
             fechas2 = [f for f, _ in serie2]
             valores2 = [v for _, v in serie2]
             n2 = len(valores2)
-            ventana2 = 9 if n2 >= 200 else (5 if n2 >= 60 else (3 if n2 >= 20 else 1))
+            ventana2 = _ventana_suavizado(n2)
             valores2_linea = _media_movil(valores2, ventana2)
 
             self.ax2 = self.ax.twinx()
@@ -739,9 +750,55 @@ class GraficaIndiceDialog(QDialog):
         if serie2:
             self._fechas_num2 = mdates.date2num(fechas2)
             self._valores_linea2 = valores2_linea
+            self._fechas_dt2 = fechas2
+            self._valores_brutos2 = valores2
         else:
             self._fechas_num2 = []
             self._valores_linea2 = []
+            self._fechas_dt2 = []
+            self._valores_brutos2 = []
+
+    def _nombre_base_exportacion(self):
+        base = f"{self.indice}_historico_{self.lat:.5f}_{self.lon:.5f}"
+        return f"{base}_vs_{self.indice2}" if self.indice2 else base
+
+    def _exportar_imagen(self):
+        """Guarda la gráfica tal y como está en pantalla (periodo y zoom)."""
+        exportar_figura(self, self.fig, self._nombre_base_exportacion(),
+                        artistas_ocultos=[self.hover_marker])
+
+    def _exportar_csv(self):
+        """Guarda los datos del periodo mostrado: valor de cada observación y
+        curva suavizada (la que se dibuja). Si hay comparación, une ambos
+        índices por fecha y deja vacío donde uno de los dos no tiene dato."""
+        if not self._valores_brutos:
+            QMessageBox.information(self, "Exportar datos",
+                                    "No hay datos en el periodo seleccionado.")
+            return
+
+        filas_por_fecha = {}
+        for f, bruto, suave in zip(self._fechas_dt, self._valores_brutos, self._valores_linea):
+            filas_por_fecha.setdefault(f.strftime("%Y-%m-%d"), [None] * 4)[0:2] = [bruto, suave]
+        cabecera = ["fecha", self.indice, f"{self.indice}_suavizado"]
+
+        if self.indice2:
+            for f, bruto, suave in zip(self._fechas_dt2, self._valores_brutos2, self._valores_linea2):
+                filas_por_fecha.setdefault(f.strftime("%Y-%m-%d"), [None] * 4)[2:4] = [bruto, suave]
+            cabecera += [self.indice2, f"{self.indice2}_suavizado"]
+
+        filas = []
+        for fecha in sorted(filas_por_fecha):
+            valores = filas_por_fecha[fecha]
+            filas.append([fecha] + (valores if self.indice2 else valores[:2]))
+
+        if self.rango_activo is None:
+            periodo = "todo el histórico"
+        elif self.rango_activo == 1:
+            periodo = "último año"
+        else:
+            periodo = f"últimos {self.rango_activo} años"
+        exportar_csv(self, self._nombre_base_exportacion(), cabecera, filas,
+                     detalle=f"Periodo exportado: {periodo} (el que muestra la gráfica).")
 
     def _al_mover_raton(self, event):
         ejes_validos = (self.ax, self.ax2) if getattr(self, "ax2", None) is not None else (self.ax,)
