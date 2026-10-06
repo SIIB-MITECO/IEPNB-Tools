@@ -1,234 +1,292 @@
-# IEPNB - Tools (v2.1.0): Manual Integral de Usuario 🌍
+# IEPNB - Tools (v2.1.3) 🌍
 
-**IEPNB - Tools** es la herramienta técnica de la Dirección General de Biodiversidad, Bosques y Desertificación para la consulta de los conjuntos de datos relativos al Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB), mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB), y para el análisis de series temporales de teledetección (Copernicus/Sentinel-2) sobre cualquier punto del territorio.
+**IEPNB - Tools** es el complemento de QGIS de la Dirección General de Biodiversidad, Bosques y Desertificación (MITECO) para consultar los datos del Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB), y para analizar el territorio con imágenes **Copernicus / Sentinel-2** (series temporales, firmas espectrales e imágenes) sin salir de QGIS.
 
-[![QGIS Minimum Version](https://img.shields.io/badge/QGIS-3.22%2B-green?style=flat-square&logo=qgis)](https://qgis.org/)
+[![QGIS](https://img.shields.io/badge/QGIS-3.22%2B%20%7C%204.x-green?style=flat-square&logo=qgis)](https://qgis.org/)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.3-informational?style=flat-square)](#-historial-de-versiones-changelog)
 [![MITECO Oficial](https://img.shields.io/badge/Oficial-MITECO-blue?style=flat-square)](https://www.miteco.gob.es/)
 
-## 📌 Índice de Contenidos
+## 📌 Índice de contenidos
 
-- [📺 Vídeo de Demostración](#-vídeo-de-demostración)
-- [✨ Novedades y Arquitectura](#-novedades-y-arquitectura)
-- [🛠️ Interfaz Principal y Barra de Herramientas](#️-interfaz-principal-barra-de-herramientas-inferior)
-- [📋 Módulo 1: Pestaña "Identificar"](#-módulo-1-pestaña-identificar)
-- [🔍 Módulo 2: Pestaña "Buscador"](#-módulo-2-pestaña-buscador)
-- [🐾 Módulo 3: Pestaña "Especies" (EIDOS)](#-módulo-3-pestaña-especies-eidos)
-- [🌐 Módulo 4: Pestaña "Servicios Web"](#-módulo-4-pestaña-servicios-web)
+- [📺 Vídeo de demostración](#-vídeo-de-demostración)
+- [⚙️ Instalación y requisitos](#️-instalación-y-requisitos)
+- [✨ Novedades y arquitectura](#-novedades-y-arquitectura)
+- [🛠️ Interfaz principal y barra inferior](#️-interfaz-principal-y-barra-inferior)
+- [📋 Módulo 1: Identificar](#-módulo-1-identificar)
+- [🔍 Módulo 2: Buscador](#-módulo-2-buscador)
+- [🐾 Módulo 3: Especies (EIDOS)](#-módulo-3-especies-eidos)
+- [🌐 Módulo 4: Servicios Web](#-módulo-4-servicios-web)
 - [📸 Módulo 5: Fototeca CENEAM](#-módulo-5-fototeca-ceneam)
-- [📈 Módulo 6: Índice Histórico (Copernicus)](#-módulo-6-índice-histórico-copernicus)
-- [🔄 Historial de Versiones (Changelog)](#-historial-de-versiones-changelog)
-- [🏛️ Soporte y Enlaces Oficiales](#️-soporte-y-enlaces-oficiales)
+- [🛰️ Módulo 6: Copernicus / Sentinel-2](#️-módulo-6-copernicus--sentinel-2)
+- [🔄 Historial de versiones (Changelog)](#-historial-de-versiones-changelog)
+- [🏛️ Soporte y enlaces oficiales](#️-soporte-y-enlaces-oficiales)
 
 ---
 
-### 📺 Vídeo de demostración
+## 📺 Vídeo de demostración
 
-Haz clic en la imagen de abajo para ver el funcionamiento del plugin en YouTube:
+Haz clic en la imagen para ver el funcionamiento del plugin en YouTube:
 
 [![Ver el vídeo del plugin](https://img.youtube.com/vi/7XWND6h2__E/hqdefault.jpg)](https://www.youtube.com/watch?v=7XWND6h2__E&vq=hd1080)
 
-> **Nota:** En este vídeo se explica la instalación básica y el flujo de trabajo principal. El módulo de Índice Histórico (Copernicus), incorporado en la v2.0/2.1, no aparece todavía en el vídeo.
+> **Nota:** el vídeo explica la instalación básica y el flujo de trabajo principal. El módulo de Copernicus / Sentinel-2 (incorporado a partir de la v2.1) todavía no aparece en él.
 
 ---
 
-### ✨ Novedades y Arquitectura
+## ⚙️ Instalación y requisitos
 
-- **Compatibilidad Estructural:** Código refactorizado para garantizar compatibilidad con versiones de QGIS desde la 3.22 hasta QGIS 4.x (PyQt6).
-- **Rendimiento Asíncrono (Anti-Congelación):** Sistema de carga en segundo plano y optimización de la gestión de memoria en peticiones de red mediante `QEventLoop`, tanto para los servicios WMS/WFS del IEPNB como para las consultas a la Statistical API de Copernicus.
-- **Experiencia de Usuario (UX):** `QProgressBar` para la exportación de informes PDF, barras de desplazamiento horizontal en las tablas, solución de renderizado High-DPI para logos institucionales, y gráficas interactivas (zoom, inspección de valores) en el nuevo módulo de índices.
-- **Autenticación segura:** Las credenciales de Copernicus Data Space Ecosystem se guardan cifradas en el Authentication Manager nativo de QGIS, nunca en texto plano.
-- **Catálogo de servicios:** más de 30 categorías temáticas y cerca de 370 capas WMS/WFS indexadas, buscables desde la pestaña "Servicios Web".
+**Desde QGIS:** menú `Complementos > Administrar e instalar complementos…`, busca **IEPNB - Tools** e instálalo.
+
+**Instalación manual (ZIP):** `Complementos > Administrar e instalar complementos… > Instalar a partir de ZIP`, selecciona `IEPNB_Tools.zip` y pulsa *Instalar complemento*.
+
+| Requisito | Detalle |
+| --- | --- |
+| **QGIS** | 3.22 o superior, incluida la serie 4.x (PyQt6). |
+| **Conexión a Internet** | Todos los módulos consultan servicios remotos (IEPNB, MITECO, EIDOS, CENEAM, Copernicus). |
+| **Cuenta de Copernicus (gratuita)** | Solo para el [Módulo 6](#️-módulo-6-copernicus--sentinel-2). El resto del plugin funciona sin ella. |
 
 ---
 
-## 🛠️ Interfaz Principal: Barra de Herramientas Inferior
+## ✨ Novedades y arquitectura
 
-La barra inferior centraliza accesos directos que cargan, con un solo clic, un subconjunto ya agrupado del catálogo de la IDE de MITECO (el catálogo completo, con todas las capas sueltas, se explora desde la pestaña [Servicios Web](#-módulo-4-pestaña-servicios-web)).
+**Lo último (v2.1.x):**
 
-| Botón | Grupos que carga (subcategorías reales) |
+- 🛰️ **Copernicus / Sentinel-2** con tres herramientas: *Índice Histórico*, *Firma Espectral* y *Ver Imagen*, accesibles desde una **galería visual de tarjetas** por categorías.
+- 📤 **Exportar gráficas** (imagen PNG/JPG/SVG/PDF y CSV) desde el Índice Histórico y la Firma Espectral.
+- ⭐ **Favoritos** en *Servicios Web*: tus capas habituales siempre arriba del árbol.
+
+**Arquitectura:**
+
+- **Compatibilidad estructural:** código preparado para QGIS 3.22 – 4.x (PyQt5/PyQt6).
+- **Peticiones en segundo plano:** carga asíncrona y gestión de memoria con `QEventLoop`, tanto en los servicios WMS/WFS como en las consultas a Copernicus, para que QGIS no se quede congelado.
+- **Experiencia de usuario:** barra de progreso en la exportación de informes PDF, tablas con desplazamiento horizontal, logotipos nítidos en pantallas High-DPI y gráficas interactivas con zoom e inspección de valores.
+- **Autenticación segura:** las credenciales de Copernicus se guardan cifradas en el *Authentication Manager* de QGIS, nunca en texto plano.
+- **Catálogo de servicios:** **33 categorías** temáticas y **351 capas** WMS/WMTS indexadas y buscables desde la pestaña *Servicios Web*.
+
+---
+
+## 🛠️ Interfaz principal y barra inferior
+
+La barra inferior reúne accesos directos que cargan con un clic un conjunto ya agrupado de capas de la IDE de MITECO (el catálogo completo se explora desde [Servicios Web](#-módulo-4-servicios-web)). Las capas se organizan en el grupo **«Servicios MITECO»** del panel de capas.
+
+| Botón | Qué carga |
 | --- | --- |
 | **Banco de Datos de la Naturaleza (BDN)** | Espacios Protegidos y Propiedad (ENP, RN2000, IBAs, RAMPE, MUP, Vías Pecuarias) · Convenios Internacionales (MAB, OSPAR, RAMSAR, ZEPIM, Geoparque) · Mapa Forestal Español (Foto Fija MFE) · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales, mensuales y cambios de vegetación) |
-| **SNCZI** | Cartografía de Zonas Inundables — Áreas con Riesgo Potencial Significativo de Inundación (ARPSI) |
-| **Sistema de Información de Redes (SIR - DGA)** | Hidrología Cuantitativa (SIMPA, SAIH, ERHIN) · Reservas Hidrológicas y Zonas Protegidas · Saneamiento, Vertidos y Nitratos · DPH, Hidromorfología y Restauración · Seguimiento de Aguas Superficiales y Subterráneas · Masas de Agua y Estado (PHC 2022-2027) · Planificación, Ámbitos e Hidrografía |
+| **SNCZI** | Cartografía de Zonas Inundables: áreas con riesgo potencial significativo de inundación (ARPSI) |
+| **Sistema de Información de Redes (SIR – DGA)** | Hidrología Cuantitativa (SIMPA, SAIH, ERHIN) · Reservas Hidrológicas y Zonas Protegidas · Saneamiento, Vertidos y Nitratos · DPH, Hidromorfología y Restauración · Seguimiento de Aguas Superficiales y Subterráneas · Masas de Agua y Estado (PHC 2022-2027) · Planificación, Ámbitos e Hidrografía |
 | **Costas (DGC)** | Estrategias Marinas · POEM (Planes de Ordenación del Espacio Marítimo) · Dominio Público Marítimo-Terrestre y Gestión |
 | **CEA** | Ruido Ambiental (UME y MER) · Emisiones Industriales, Residuos y Sensibilidad a Renovables · Calidad del Aire (general y por contaminante) · Cambio Climático y LULUCF |
 
-> El botón **"Reto Demográfico"** que figuraba en versiones antiguas del manual ya no existe en el código actual — se eliminó del catálogo y no debe aparecer en la documentación.
+**Herramientas de contexto transversales**
 
-#### Herramientas de Contexto Transversales
-
-- **Cartografía Base:** Carga instantánea de la ortofoto de máxima actualidad del PNOA (teselas XYZ) y los límites administrativos oficiales en el fondo del proyecto.
-- **Google Street View:** Transforma el cursor para abrir dinámicamente la vista a pie de calle en el navegador al hacer clic sobre cualquier coordenada del mapa.
-- **Índice Histórico (Copernicus):** Icono con el logo de Copernicus; despliega un menú de índices espectrales por categorías y abre una gráfica temporal para el punto en el que se haga clic. Ver [Módulo 6](#-módulo-6-índice-histórico-copernicus).
-
----
-
-## 📋 Módulo 1: Pestaña "Identificar"
-
-El núcleo de interacción espacial, cruce de información territorial avanzada y generación de reportes corporativos automáticos cruzando bases de datos como ENP, RN2000 y MUP.
-
-### 1. Herramientas de Selección Espacial
-
-- **Selección por Punto:** Captura e identificación espacial mediante un único clic.
-- **Selección por Área:** Habilita el dibujo manual de polígonos de estudio personalizados.
-- **Importar Geometrías:** Permite cargar recintos y polígonos externos desde formatos vectoriales, asegurando una transferencia segura de geometrías WKT entre interfaces.
-- **Buscador de Término Municipal (TTMM):** Botón independiente dentro de la propia pestaña que abre un diálogo de búsqueda por nombre de municipio contra el servicio WFS oficial (autocompletado desde 3 letras, con normalización de tildes). Al seleccionar un resultado, su geometría (con unión automática de posibles enclaves/islas) se usa directamente como área de estudio para el análisis — sin necesidad de salir a la pestaña "Buscador" ni dibujar nada a mano.
-
-### 2. Motor de Análisis Espacial
-
-El sistema analiza de forma simultánea capas críticas de protección (Espacios Naturales Protegidos, Red Natura 2000, Montes de Utilidad Pública, etc.). Además, incorpora soporte directo para el análisis de masas de agua a través de OGC API Features.
-
-### 3. Emisión de Resultados y Reportes
-
-- **Exportación CSV:** Vuelca de forma estructurada todos los solapes territoriales identificados.
-- **Informe Oficial PDF:** Genera un documento técnico formal con mapa captura, cálculo exacto de superficies/distancias forzando el sistema de referencia oficial de España (RD 1071/2007) y listados taxonómicos.
+| Botón | Función |
+| --- | --- |
+| **Cartografía Base** | Carga la ortofoto de máxima actualidad del PNOA (teselas XYZ) y los límites administrativos oficiales, siempre al fondo del proyecto. |
+| **Google Street View** | Convierte el cursor en una herramienta: al hacer clic en el mapa abre Street View en el navegador, en esas coordenadas. |
+| **Copernicus** | Abre la galería de [Copernicus / Sentinel-2](#️-módulo-6-copernicus--sentinel-2): Firma Espectral, Ver Imagen e Índice Histórico. |
 
 ---
 
-## 🔍 Módulo 2: Pestaña "Buscador"
+## 📋 Módulo 1: Identificar
 
-Herramienta territorial optimizada por capas y por término municipal — complementaria al buscador de TTMM que vive dentro de "Identificar": aquí el foco es explorar y visualizar, no lanzar directamente un análisis de intersección.
+Núcleo del análisis espacial: define una zona de estudio y el plugin consulta qué figuras de protección y qué especies hay en ella, con cálculo de superficies e informe.
 
-- **Búsqueda Ágil:** Permite localizar de forma rápida espacios protegidos, montes catalogados o realizar una búsqueda integrada de Términos Municipales (TTMM) como área de estudio.
-- **Soporte de Enclaves Territoriales:** El sistema cuenta con soporte avanzado para municipios con islas o enclaves, aplicando una unificación automática de geometrías (*unary union*) para tratar el territorio como un único multipolígono continuo.
-- **Tabla Responsiva:** Resultados estructurados con redimensionamiento automático.
+### 1. Herramientas de selección
+
+| Botón | Qué hace |
+| --- | --- |
+| **Punto** | Identificación con un clic. Aplica un pequeño buffer alrededor del punto para capturar también elementos colindantes. |
+| **Área** | Dibujo manual de un polígono (clic izquierdo para añadir vértices, clic derecho para terminar). |
+| **TTMM** | Busca un **término municipal** por nombre (autocompletado desde 3 letras, sin distinguir tildes) y lo usa directamente como zona de estudio. Si el municipio tiene enclaves o islas, se unifican en una sola geometría. |
+| **Importar** | Carga un polígono desde un archivo externo (KMZ, KML, Shapefile, GeoJSON, GPKG). |
+| **Limpiar** | Borra la zona de estudio dibujada pero conserva la tabla de resultados. |
+
+### 2. Qué se analiza
+
+ENP, Red Natura 2000 (ZEC y ZEPA), Montes de Utilidad Pública, Vías Pecuarias, IBAs, Áreas Marinas Protegidas (RAMPE), malla de riqueza de especies y Convenios Internacionales (MAB, RAMSAR, OSPAR, ZEPIM, Geoparques). Incluye también el análisis de masas de agua mediante OGC API Features y el cruce con provincias y términos municipales.
+
+### 3. Acciones y resultados
+
+| Botón | Qué hace |
+| --- | --- |
+| **Añadir Todas** / **Añadir Grupo** | Lleva al panel de capas de QGIS los resultados de la tabla (todos, o solo un grupo). |
+| **Intersección** | Intersecta los resultados con tu zona y calcula las **hectáreas / metros** exactos de afección, proyectando a los sistemas oficiales de España (ETRS89 UTM huso 30 para Península y Baleares; REGCAN95 huso 28 para Canarias). Se activa tras añadir capas. |
+| **CSV** | Exporta todos los solapes identificados. |
+| **Informe PDF** | Genera un documento técnico con mapa de la zona, tabla de superficies/distancias y listado de especies (con enlace a su ficha EIDOS). Se activa tras calcular la intersección. |
+| **Borrar** | Limpieza total: elimina las capas temporales, vacía la tabla y el grupo «Consultas IEPNB». |
 
 ---
 
-## 🐾 Módulo 3: Pestaña "Especies" (EIDOS)
+## 🔍 Módulo 2: Buscador
 
-Integración e interoperabilidad directa con los servicios web de la API del catálogo EIDOS para la consulta de especies y su distribución.
+Motor de búsqueda para **localizar y cargar solo lo que necesitas** en vez de añadir capas enteras de toda España. Complementa al botón TTMM de *Identificar*: aquí el objetivo es explorar y visualizar, no lanzar un análisis.
 
-- **Búsqueda Taxonómica:** Localización exacta por nombre científico, común o Taxón ID.
-- **Visualización de Distribución:** Descarga las geometrías de distribución del taxón y las incorpora como capas vectoriales estilizadas dinámicamente.
+- **Dos vías de consulta**, combinables: por *nombre* y por *tipo / información* (por ejemplo, «Parque Natural»).
+- **Capas consultadas:** límites administrativos (CCAA, provincias, términos municipales), ENP, RN2000, MUP, Vías Pecuarias, IBAs, RAMPE, riqueza de especies y Convenios Internacionales.
+- **Municipios con enclaves o islas:** se unifican automáticamente en un único multipolígono.
+- **Resultados:** tabla con redimensionado automático, botón *Añadir* por fila, *Añadir todas* y exportación a CSV.
 
 ---
 
-## 🌐 Módulo 4: Pestaña "Servicios Web"
+## 🐾 Módulo 3: Especies (EIDOS)
 
-Catálogo completo, buscable, de los servicios interoperables WMS/WFS de MITECO — organizado en un árbol filtrable con más de **30 categorías temáticas** y cerca de **370 capas** individuales, agrupadas por dirección/organismo responsable:
+Acceso directo a la API del Inventario Español de Especies Silvestres (EIDOS).
 
-| Prefijo | Ámbito | Ejemplos de categorías |
+- **Búsqueda** por Taxón ID, nombre científico o nombre común. Respeta la ortografía oficial del catálogo, tildes incluidas.
+- **Ficha oficial:** el Taxón ID es un enlace a la ficha del taxón en el portal del IEPNB.
+- **Estado de protección** de cada especie, consultable desde la tabla.
+- **Fotos:** galería con las imágenes vinculadas al taxón en EIDOS.
+- **Distribución:** si el servidor dispone de ella, el botón *Añadir* descarga la cuadrícula de distribución y la carga en QGIS con simbología propia.
+
+---
+
+## 🌐 Módulo 4: Servicios Web
+
+Catálogo buscable de servicios WMS/WMTS: **33 categorías y 351 capas**, sin configurar conexiones ni sistemas de coordenadas.
+
+| Prefijo | Ámbito | Contenido |
 | --- | --- | --- |
-| **[IEPNB]** | Biodiversidad, bosques y espacios protegidos | Espacios Protegidos y Propiedad, Convenios Internacionales, Mapa Forestal Español, Ecosistemas y Hábitats, Fauna y Flora, Erosión e Incendios (INES), EIKOS |
-| **[DGA]** | Agua (Dirección General del Agua) | Planificación e Hidrografía, Masas de Agua (PHC 2022-2027), Seguimiento de Aguas Superficiales/Subterráneas, DPH e Hidromorfología, Saneamiento y Vertidos, Reservas Hidrológicas, Hidrología Cuantitativa, SNCZI |
-| **[DGC]** | Costas | Dominio Público Marítimo-Terrestre, POEM, Estrategias Marinas |
-| **[DGCEA]** | Calidad y Evaluación Ambiental | Cambio Climático y LULUCF, Calidad del Aire (general y por contaminante), Emisiones Industriales y Residuos, Ruido Ambiental |
-| **[IGN]** | Cartografía de referencia | PNOA Histórico (serie completa 2006-2024), Redes de Transporte (carretera, ferrocarril, aéreo, marítimo) |
-| **[COPERNICUS]** | Observación de la Tierra europea | Corine Land Cover & Backbone, High Resolution Layers (Bosques, Suelo Desnudo, Humedales, Zonas Urbanas/Costeras/Riparias) |
+| **[IEPNB]** | Biodiversidad, bosques y espacios protegidos | Espacios Protegidos y Propiedad · Convenios Internacionales · Mapa Forestal Español · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales y mensuales, cambios anuales de vegetación) |
+| **[DGA]** | Agua | Planificación e Hidrografía · Masas de Agua y Estado (PHC 2022-2027) · Seguimiento de Aguas Superficiales y Subterráneas · DPH e Hidromorfología · Saneamiento, Vertidos y Nitratos · Reservas Hidrológicas · Hidrología Cuantitativa · SNCZI |
+| **[DGC]** | Costas y mar | Dominio Público Marítimo-Terrestre · POEM · Estrategias Marinas |
+| **[DGCEA]** | Calidad y Evaluación Ambiental | Cambio Climático y LULUCF · Calidad del Aire (general y por contaminante) · Emisiones Industriales y Residuos · Ruido Ambiental |
+| **[IGN]** | Cartografía de referencia | PNOA Histórico (ortofotos anuales 2004-2024 y vuelos históricos: Americano Serie B 1956-57, Interministerial 1973-86, Nacional 1981-86, OLISTAT 1997-98, SIGPAC 1997-2003) · Redes de Transporte (carretera, ferrocarril, aéreo, marítimo) |
+| **[COPERNICUS]** | Observación de la Tierra | Corine Land Cover y Backbone (CLC+) · High Resolution Layers y capas locales |
 
-- **Búsqueda por texto libre** sobre todo el árbol de capas.
-- **Doble clic o "Añadir al Mapa"** para incorporar cualquier capa individual al proyecto, con estilo y leyenda ya configurados.
+**Cómo se usa**
+
+- **Filtro de texto** sobre todo el árbol: escribe parte del nombre y el árbol se filtra al instante.
+- **Doble clic** o botón **Añadir al Mapa** para cargar una capa; **Eliminar** la retira del proyecto. Las capas se agrupan en el grupo «Servicios Web».
+- ⭐ **Favoritos** *(nuevo en v2.1.3)*: selecciona una capa y pulsa **☆ Favorito** (o clic derecho → *Añadir a favoritos*). Aparece en el grupo **⭐ Favoritos**, siempre arriba del árbol, y en negrita dentro del catálogo. Se guardan en la configuración de QGIS, así que **persisten entre sesiones**. Al buscar, el grupo se oculta para no duplicar resultados.
 
 ---
 
 ## 📸 Módulo 5: Fototeca CENEAM
 
-Consulta integrada en la base de recursos del Centro Nacional de Educación Ambiental.
+Consulta de la Fototeca del CENEAM (Centro Nacional de Educación Ambiental) desde QGIS.
 
-- **Búsqueda Semántica y Tarjetas de Visualización:** Presentación en formato "Cards" con metadatos.
-- **Descarga Nativa:** Botones integrados para abrir la resolución original o guardar el archivo directamente en el disco duro local saneando automáticamente los nombres de los ficheros.
+- Búsqueda libre por cualquier dato del catálogo.
+- Resultados en **tarjetas** con imagen, título, autor y provincia.
+- **Ver original** abre la imagen en máxima resolución; **Descargar** la guarda en tu disco con un nombre de archivo saneado.
+
+> ⚖️ Las imágenes son propiedad del CENEAM (MITECO) y su uso está sujeto a las condiciones de la Fototeca.
 
 ---
 
-## 📈 Módulo 6: Índice Histórico (Copernicus)
+## 🛰️ Módulo 6: Copernicus / Sentinel-2
 
-Herramienta de teledetección integrada directamente en el plugin: permite consultar la evolución temporal de un índice espectral en cualquier punto del territorio español, sin salir de QGIS ni depender de otro software. Los datos proceden de **Sentinel-2 L2A**, procesados en la nube a través de la **Statistical API de Copernicus Data Space Ecosystem (CDSE)**.
+Teledetección integrada en el plugin: consulta **Sentinel-2 L2A** (reflectancia de superficie) para cualquier punto de España, procesada en la nube por **Copernicus Data Space Ecosystem (CDSE)** mediante la *Statistical API* y la *Process API*.
 
-### 1. Uso básico
+### 1. La galería de Copernicus
 
-1. Pulsa el icono de Copernicus en la barra inferior.
-2. Elige un índice del menú, organizado por categorías temáticas.
-3. Haz clic en el punto del mapa que te interese.
-4. Se abre una ventana con la serie temporal completa (desde 2017 hasta hoy, muestreada cada 5 días).
+Al pulsar el botón de Copernicus se abre una **galería de tarjetas** con color e icono por categoría. Pasa el ratón sobre una tarjeta para ver su fórmula, rango e interpretación.
 
-### 2. Índices disponibles, por categoría
+| Tarjeta | Qué hace |
+| --- | --- |
+| **Firma espectral** | Reflectancia de las 12 bandas en un punto y una fecha ([ver apartado 3](#3-firma-espectral)). |
+| **Ver imagen** | Descarga una imagen Sentinel-2 y la carga como capa ráster ([ver apartado 4](#4-ver-imagen)). |
+| **Un índice** (NDVI, NBR…) | Abre la serie temporal de ese índice en un punto ([ver apartado 2](#2-índice-histórico)). |
+
+**Los 11 índices espectrales**
 
 | Categoría | Índices | Para qué sirven |
 | --- | --- | --- |
-| **Vegetación** | NDVI, EVI, SAVI, GNDVI, CIRE | Vigor y densidad de la vegetación, con variantes que corrigen suelo desnudo (SAVI), saturación en biomasa alta (EVI) o detectan estrés de clorofila más temprano (GNDVI, CIRE). |
-| **Agua y nieve** | NDWI, NDMI, NDSI | Agua superficial (NDWI), contenido de humedad de la vegetación/estrés hídrico (NDMI) y cobertura de nieve (NDSI). |
-| **Incendios y suelo desnudo** | NBR, BAI, BSI | Severidad de área quemada (NBR, BAI) y suelo desnudo expuesto, útil para seguimiento de regeneración post-incendio (BSI). |
+| 🌿 **Vegetación** | NDVI, EVI, SAVI, GNDVI, CIRE | Vigor y densidad de la vegetación. EVI corrige la saturación en biomasa alta, SAVI el efecto del suelo, y GNDVI y CIRE detectan antes el estrés de clorofila. |
+| 💧 **Agua y nieve** | NDWI, NDMI, NDSI | Agua superficial (NDWI), humedad de la vegetación y estrés hídrico (NDMI) y cobertura de nieve (NDSI). |
+| 🔥 **Incendios y suelo desnudo** | NBR, BAI, BSI | Severidad de área quemada (NBR, BAI) y suelo desnudo expuesto, útil para seguir la regeneración tras un incendio (BSI). |
 
-Cada índice, dentro de la propia gráfica, incluye una ficha con su fórmula, rango típico de valores y cómo interpretarlos.
+### 2. Índice Histórico
 
-### 3. Comparar dos índices
+Haz clic en un índice de la galería y después en el mapa: se abre la **serie temporal completa desde 2017**, con una observación cada 5 días (se descartan nubes y sombras con la banda SCL, y escenas con más de un 80 % de nubosidad).
 
-Desde el botón **"+ Añadir índice"** dentro de la gráfica se puede superponer un segundo índice sobre el mismo punto (p. ej. NDVI vs NDMI, o NBR vs BAI), cada uno con su propio eje Y y color, para contrastar dos fenómenos a la vez sin volver a hacer clic en el mapa.
+- **Periodo:** botones de 1, 3 y 5 años o todo el histórico, sin repetir la consulta.
+- **Comparar dos índices:** **+ Añadir índice** superpone un segundo índice (p. ej. NDVI frente a NDMI, o NBR frente a BAI), cada uno con su eje Y y su color.
+- **Lectura:** observaciones brutas atenuadas de fondo y media móvil encima; al pasar el ratón se muestran la fecha y el valor exacto del punto más cercano.
+- **Zoom:** lupa por rectángulo, desplazamiento (*pan*) y *Home* para volver a la vista completa.
+- **Ficha del índice** bajo la gráfica: fórmula, rango típico y cómo interpretarlo.
 
-### 4. Interacción con la gráfica
+### 3. Firma Espectral
 
-- **Filtro de periodo:** botones rápidos de 1/3/5 años o el histórico completo.
-- **Zoom:** barra de herramientas con lupa de zoom por rectángulo, desplazamiento (pan) y botón "Home" para volver a la vista completa.
-- **Inspección de valores:** al pasar el ratón sobre la curva se resalta el punto más cercano y se muestra su fecha (dd/mm/aaaa) y valor exacto.
-- **Suavizado:** las observaciones brutas se muestran atenuadas de fondo, con una media móvil superpuesta para facilitar la lectura de la tendencia.
+Para un punto y una **fecha aproximada**, el plugin busca la adquisición más despejada de nubes en una ventana de **±15 días** y dibuja la reflectancia de las 12 bandas frente a la longitud de onda.
 
-### 5. Autenticación y cuota
+- **Fecha usada:** se indica cuál es, la diferencia con la pedida y la cobertura despejada en el punto (con aviso si es baja).
+- **Referencia más parecida:** compara tu firma con 7 firmas de referencia (*vegetación sana, vegetación seca (NPV), suelo desnudo, urbano/construido, quemado/carbón, agua y nieve*) usando el **ángulo espectral (SAM)**.
+- **+ Comparar con referencia:** superpone una o varias de esas firmas en la gráfica.
 
-El módulo requiere una cuenta gratuita en [dataspace.copernicus.eu](https://dataspace.copernicus.eu) y un **OAuth Client** (Client ID/Secret) generado desde el Dashboard de Sentinel Hub — no el usuario/contraseña personal de la cuenta. Las credenciales se piden una sola vez, mediante un diálogo con instrucciones y enlace directo, y quedan guardadas cifradas en el Authentication Manager de QGIS. El nivel gratuito de CDSE incluye 40.000 unidades de procesamiento al mes, muy por encima de lo que consume el uso normal de esta herramienta.
+### 4. Ver Imagen
 
-### 6. Origen de los datos y licencia
+Descarga una imagen real de Sentinel-2 y la carga en tu proyecto como **capa ráster georreferenciada**.
 
-Los datos proceden del programa **Copernicus** (ESA / Unión Europea), de acceso libre y gratuito según la *Legal Notice on the use of Copernicus Sentinel Data*, que exige únicamente atribución (`Copernicus Sentinel data [año]`) al redistribuir. Este aviso se muestra también en cada gráfica generada por el plugin.
+1. Elige **Ver imagen** en la galería.
+2. **Ubicación:** *Punto* (recorte fijo de 2 × 2 km centrado en tu clic) o *Dibujar área* (polígono a mano, **hasta 1000 km²**; la imagen se recorta a la forma exacta del polígono, no a su rectángulo envolvente).
+3. **Estilo:** *Color real*, *Falso color infrarrojo* o cualquiera de los 11 índices.
+4. Elige la fecha: se usa la más despejada de nubes dentro de ±15 días.
+
+Los índices se descargan como **valor real de una sola banda** (no como color ya aplicado), con un estilo de QGIS que los muestra coloreados pero te permite consultar el valor exacto de cada píxel o reclasificarlo.
+
+> ⚠️ **Resolución en áreas grandes.** La imagen se pide con un máximo de **1024 píxeles por lado**. Sentinel-2 ofrece 10 m/píxel, así que esa resolución se conserva mientras el lado mayor del área no supere ~10,2 km (unos 105 km² en un cuadrado). Por encima, cada píxel cubre más terreno (p. ej. ~30 m en un área cuadrada de 1000 km²). Si necesitas 10 m, divide el área en trozos más pequeños.
+
+### 5. Exportar gráficas *(nuevo en v2.1.3)*
+
+El botón **Exportar** del Índice Histórico y de la Firma Espectral ofrece:
+
+- **Gráfica como imagen:** PNG, JPG, SVG o PDF, tal y como la ves (periodo y zoom actuales), con la atribución de Copernicus incluida.
+- **Datos como CSV:**
+  - *Índice Histórico:* el periodo mostrado, con el valor de cada observación y la curva suavizada (y el segundo índice, si estás comparando).
+  - *Firma Espectral:* una fila por banda, con su reflectancia y, si las has superpuesto, las referencias.
+  - Elige el formato al guardar: **CSV para Excel en español** (separador `;` y coma decimal) o **CSV estándar** (separador `,` y punto decimal).
+
+### 6. Autenticación y cuota
+
+Necesitas una cuenta gratuita en [dataspace.copernicus.eu](https://dataspace.copernicus.eu) y un **OAuth Client** (Client ID y Client Secret) creado en el *Dashboard* de Sentinel Hub: **no** es el usuario y contraseña de tu cuenta. El plugin te lo pide una sola vez, con instrucciones paso a paso, y lo guarda cifrado en el *Authentication Manager* de QGIS.
+
+Una cuenta gratuita (*Copernicus General*) dispone de **10.000 unidades de procesamiento y 10.000 peticiones al mes**, que se renuevan el día 1. Las series históricas y las firmas suelen consumir poco; **Ver Imagen consume más cuanto mayor es el área**. Puedes consultar tu saldo en el Dashboard de CDSE.
+
+### 7. Origen de los datos y licencia
+
+Los datos proceden del programa **Copernicus** (ESA / Unión Europea), de acceso libre y gratuito según la *Legal Notice on the use of Copernicus Sentinel Data*, que exige atribución al redistribuir: *«Copernicus Sentinel data [año]»*. El plugin muestra este aviso en las gráficas y lo incluye en las imágenes exportadas. Los datos se ofrecen sin garantía expresa ni implícita de exactitud.
 
 ---
 
-## 🔄 Historial de Versiones (Changelog)
+## 🔄 Historial de versiones (Changelog)
 
+- **Versión 2.1.3:**
+  - **Exportar gráficas:** botón *Exportar* en el Índice Histórico y la Firma Espectral para guardar la gráfica como imagen (PNG, JPG, SVG, PDF) o los datos como CSV (formato Excel en español o estándar).
+  - **Servicios Web:** nuevos favoritos (botón ☆ Favorito y menú contextual), con grupo «⭐ Favoritos» fijo arriba del árbol y persistencia entre sesiones.
+  - El título del panel y del menú del plugin lee ahora la versión de `metadata.txt`.
+- **Versión 2.1.2:** el límite de área de *Ver Imagen* sube a 1000 km².
+- **Versión 2.1.1:**
+  - Selección de Copernicus rediseñada: galería de tarjetas visuales por categorías en lugar de un menú desplegable anidado.
+  - Nueva funcionalidad **Ver Imagen** (color real, falso color infrarrojo o cualquiera de los índices, por punto o por área dibujada).
+  - Nueva funcionalidad **Firma Espectral**, con comparación frente a 7 firmas de referencia.
+  - Índices espectrales ampliados a 11 (se añaden NDSI, BSI y CIRE), organizados por categorías.
 - **Versión 2.1.0:**
-  - Nueva funcionalidad: **Índice Histórico**. Botón en la barra de herramientas (icono Copernicus) que, al pulsarlo, permite elegir un índice espectral (NDVI, NDWI, NBR, EVI, NDMI, GNDVI, SAVI, BAI, NDSI, BSI, CIRE) y hacer clic en un punto del mapa para consultar su serie temporal completa desde 2017.
-  - Los datos se obtienen de Sentinel-2 L2A a través de la Statistical API de Copernicus Data Space Ecosystem (CDSE), con enmascarado de nubes/sombras por banda SCL y muestreo cada 5 días.
-  - Autenticación mediante OAuth Client (Client ID/Secret de Sentinel Hub, no el usuario/contraseña personal), guardada cifrada en el Authentication Manager de QGIS tras la primera consulta.
-  - Gráfica con curva suavizada (media móvil) sobre las observaciones brutas, relleno de área, colores propios por índice, filtro rápido de periodo (1/3/5 años/Todo), zoom interactivo, inspección de valores al pasar el ratón, comparación de dos índices en la misma gráfica y aviso de fuente/licencia de los datos.
+  - Nueva funcionalidad **Índice Histórico** (NDVI, NDWI, NBR, EVI, NDMI, GNDVI, SAVI y BAI) con la serie temporal desde 2017 vía Statistical API de CDSE, enmascarado de nubes y sombras por banda SCL y muestreo cada 5 días.
+  - Autenticación mediante OAuth Client, guardada cifrada en el *Authentication Manager* de QGIS.
+  - Gráfica con media móvil, filtro de periodo, zoom, inspección de valores, comparación de dos índices y aviso de fuente y licencia.
 - **Versión 2.0:**
-  - Compatibilidad con QGIS 4.x (PyQt6), manteniendo el soporte de QGIS 3.22+.
-  - Corregidos fallos silenciosos en Territory, TTMM, ficha de especies y Fototeca CENEAM causados por el acceso a enums de `QNetworkReply` no compatible con PyQt6.
-  - Solucionado el buscador de Términos Municipales (TTMM), que no localizaba resultados por un desajuste entre el identificador interno y el definido en la configuración de servicios.
-  - Corregida la generación de informes PDF en QGIS 4 (método de impresión de `QTextDocument` no disponible en PyQt6).
-  - Corregida la deformación de los logotipos institucionales (panel lateral e informe PDF) en QGIS4 y pantallas de alta densidad (HiDPI).
-  - Reparación completa de la migración de servicios WMS de MAPA a MITECO.
-  - Actualizado e integrado el catálogo completo de la IDE de MITECO con un total de 240 capas/servicios en la configuración (ampliado desde entonces).
+  - Compatibilidad con QGIS 4.x (PyQt6), manteniendo QGIS 3.22+.
+  - Corregidos fallos silenciosos en Buscador, TTMM, ficha de especies y Fototeca CENEAM por el acceso a enums de `QNetworkReply` incompatibles con PyQt6.
+  - Solucionado el buscador de términos municipales (TTMM).
+  - Corregida la generación de informes PDF en QGIS 4 y la deformación de logotipos en pantallas HiDPI.
+  - Migración completa de los servicios WMS de MAPA a MITECO y catálogo ampliado de la IDE de MITECO.
   - Corregida la consulta a la API de aguas superficiales.
-- **Versión 1.1.6:**
-  - Optimización de la cartografía base sustituyendo el servicio WMTS del PNOA por conexión directa a teselas XYZ para un renderizado más fluido.
-  - Integración del catálogo completo de servicios WMS de MITECO Costas (POEM, Zonas de Uso Prioritario, Zonas de Alto Potencial, Zonificación Eólica y DPMT).
-  - Solucionado el recuento duplicado en los cruces espaciales con Provincias y Municipios (TTMM) mediante la agrupación estricta por atributos y unificación de geometrías multipartes.
-  - Actualizado al catálogo PNOA2024 dentro de PNOA histórico.
-- **Versión 1.1.5:**
-  - Solucionado el problema del bounding box al cargar la cartografía base.
-  - Nueva funcionalidad: identificación de resultados filtrados por provincias y términos municipales (TTMM) en búsqueda por punto y área.
-  - Mejora en la generación de informes PDF mediante la incorporación de datos de límites administrativos.
-  - Solucionada la carga de leyendas en las capas de peligrosidad por inundación fluvial y marina.
-- **Versión 1.1.4:** Actualización de la descripción general del plugin en los metadatos.
-- **Versión 1.1.3:**
-  - Integración de nuevos servicios de datos (masas de agua OGC API Features) en los módulos de identificación espacial, buscador territorial e informes automáticos.
-  - Reparación y actualización de las leyendas de múltiples servicios WMS del MITECO.
-  - Reparación del zoom a nivel España al incorporar las capas base.
-- **Versión 1.1.2:**
-  - Nuevas capas añadidas en la sección de Calidad y Evaluación Ambiental.
-  - Integración de histórico LULUCF en los servicios web.
-  - Solucionado error en el cabecero de versión del plugin.
-- **Versión 1.1.1:**
-  - Nueva funcionalidad: búsqueda integrada de Términos Municipales (TTMM) como área de estudio.
-  - Implementación de diálogo de búsqueda WFS independiente para la selección rápida de municipios.
-  - Optimización de la gestión de memoria en peticiones de red (`QEventLoop`).
-  - Soporte para municipios con enclaves o islas mediante unificación automática de geometrías (*unary union*).
-  - Mejora en la transferencia segura de geometrías (WKT) entre interfaces gráficas.
-- **Versión 1.1:**
-  - Rediseño de interfaz (UI) para reducir el ancho mínimo del panel.
-  - Barras de desplazamiento horizontal en tablas de resultados.
-  - Reorganización de botoneras y mejora de usabilidad con botones reactivos.
-  - Integración de `QProgressBar` para exportación de informes PDF.
-  - Solución de renderizado High-DPI para logos institucionales.
-- **Versión 1.0.x:** Corrección de títulos, limpieza de código (PEP8) y optimización de importaciones.
+- **Versión 1.1.6:** cartografía base con teselas XYZ del PNOA; catálogo completo de Costas (POEM, DPMT…); corregido el recuento duplicado en cruces con provincias y municipios; catálogo PNOA2024.
+- **Versión 1.1.5:** corregido el *bounding box* de la cartografía base; identificación por provincias y términos municipales en búsquedas por punto y área; límites administrativos en los informes PDF; leyendas de peligrosidad por inundación.
+- **Versión 1.1.4:** actualización de la descripción general en los metadatos.
+- **Versión 1.1.3:** masas de agua (OGC API Features) en identificación, buscador e informes; leyendas de servicios WMS reparadas; zoom a nivel España al cargar las capas base.
+- **Versión 1.1.2:** nuevas capas de Calidad y Evaluación Ambiental; histórico LULUCF; corregido el título de versión del plugin.
+- **Versión 1.1.1:** búsqueda de términos municipales (TTMM) como zona de estudio, con diálogo WFS y soporte para enclaves e islas; mejor gestión de memoria en peticiones de red.
+- **Versión 1.1:** rediseño de la interfaz (panel más estrecho), barras de desplazamiento horizontal, botoneras reorganizadas, barra de progreso en la exportación de PDF y logotipos High-DPI.
+- **Versión 1.0.x:** corrección de títulos, limpieza de código (PEP8) y optimización de importaciones.
 
 ---
 
-## 🏛️ Soporte y Enlaces Oficiales
+## 🏛️ Soporte y enlaces oficiales
 
 Desarrollado para la **Dirección General de Biodiversidad, Bosques y Desertificación (MITECO)**.
 
-- **Web Oficial:** <https://iepnb.gob.es/>
-- **Repositorio de Código:** [GitHub - IEPNB-Tools](https://github.com/SIIB-MITECO/IEPNB-Tools)
-- **Reporte de Incidencias (Issues):** [GitHub Tracker](https://github.com/SIIB-MITECO/IEPNB-Tools/issues)
-- **Soporte Directo:** <buzon-bdatos@miteco.es>
+- **Web oficial:** <https://iepnb.gob.es/>
+- **Repositorio de código:** [GitHub – IEPNB-Tools](https://github.com/SIIB-MITECO/IEPNB-Tools)
+- **Reporte de incidencias:** [GitHub Tracker](https://github.com/SIIB-MITECO/IEPNB-Tools/issues)
+- **Soporte directo:** <buzon-bdatos@miteco.es>
