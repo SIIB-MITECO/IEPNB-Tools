@@ -1,9 +1,9 @@
-# IEPNB - Tools (v2.1.3) 🌍
+# IEPNB - Tools (v2.1.4) 🌍
 
 **IEPNB - Tools** es el complemento de QGIS de la Dirección General de Biodiversidad, Bosques y Desertificación (MITECO) para consultar los datos del Inventario Español del Patrimonio Natural y la Biodiversidad (IEPNB) mediante servicios interoperables con el Sistema Integrado de Información de la Biodiversidad (SIIB), y para analizar el territorio con imágenes **Copernicus / Sentinel-2** (series temporales, firmas espectrales e imágenes) sin salir de QGIS.
 
 [![QGIS](https://img.shields.io/badge/QGIS-3.22%2B%20%7C%204.x-green?style=flat-square&logo=qgis)](https://qgis.org/)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.3-informational?style=flat-square)](#-historial-de-versiones-changelog)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.1.4-informational?style=flat-square)](#-historial-de-versiones-changelog)
 [![MITECO Oficial](https://img.shields.io/badge/Oficial-MITECO-blue?style=flat-square)](https://www.miteco.gob.es/)
 
 ## 📌 Índice de contenidos
@@ -27,9 +27,11 @@
 
 Haz clic en la imagen para ver el funcionamiento del plugin en YouTube:
 
-[![Ver el vídeo del plugin](https://img.youtube.com/vi/7XWND6h2__E/hqdefault.jpg)](https://www.youtube.com/watch?v=7XWND6h2__E&vq=hd1080)
+[![Ver el vídeo del plugin](https://img.youtube.com/vi/LVny1YTdC6M/hqdefault.jpg)](https://www.youtube.com/watch?v=LVny1YTdC6M&vq=hd1080)
 
-> **Nota:** el vídeo explica la instalación básica y el flujo de trabajo principal. El módulo de Copernicus / Sentinel-2 (incorporado a partir de la v2.1) todavía no aparece en él.
+> 🛰️ **¿Primera vez con Copernicus?** Mira el vídeo [Cómo crear tu cuenta de Copernicus](https://youtu.be/ZCe_QHzibbg): te explica paso a paso cómo obtener las credenciales que necesita el [Módulo 6](#️-módulo-6-copernicus--sentinel-2).
+>
+> También tienes ambos vídeos, además del manual y el aviso de incidencias, en el botón **?** de la cabecera del plugin.
 
 ---
 
@@ -49,7 +51,15 @@ Haz clic en la imagen para ver el funcionamiento del plugin en YouTube:
 
 ## ✨ Novedades y arquitectura
 
-**Lo último (v2.1.x):**
+**Lo último (v2.1.4):**
+
+- 🔧 **Identificación más fiable:** corregido el agrupamiento de resultados por municipio y provincia (antes se fundían en uno por provincia o CCAA) y descartados los *minicruces* con colindantes. Afecta al corte, al informe y al CSV. Ver [Módulo 1](#-módulo-1-identificar).
+- 📅 **Selector de fecha rediseñado** en Firma Espectral y Ver Imagen, con **línea temporal** de las imágenes Sentinel-2 disponibles y su nubosidad.
+- 📈 **Suavizado LOWESS** en el Índice Histórico y cuadro de espera con botón *Cancelar*.
+- 🔑 **Credenciales validadas** al introducirlas, con enlace al vídeo de cómo crear la cuenta.
+- ❓ **Botón de ayuda «?»** con manual, vídeos e incidencias.
+
+**Desde la v2.1:**
 
 - 🛰️ **Copernicus / Sentinel-2** con tres herramientas: *Índice Histórico*, *Firma Espectral* y *Ver Imagen*, accesibles desde una **galería visual de tarjetas** por categorías.
 - 📤 **Exportar gráficas** (imagen PNG/JPG/SVG/PDF y CSV) desde el Índice Histórico y la Firma Espectral.
@@ -81,6 +91,7 @@ La barra inferior reúne accesos directos que cargan con un clic un conjunto ya 
 
 | Botón | Función |
 | --- | --- |
+| **Botón de ayuda «?»** *(cabecera del plugin)* | Acceso al manual de uso, al vídeo de demostración, al vídeo de cómo crear la cuenta de Copernicus y a la notificación de problemas (GitHub Issues). |
 | **Cartografía Base** | Carga la ortofoto de máxima actualidad del PNOA (teselas XYZ) y los límites administrativos oficiales, siempre al fondo del proyecto. |
 | **Google Street View** | Convierte el cursor en una herramienta: al hacer clic en el mapa abre Street View en el navegador, en esas coordenadas. |
 | **Copernicus** | Abre la galería de [Copernicus / Sentinel-2](#️-módulo-6-copernicus--sentinel-2): Firma Espectral, Ver Imagen e Índice Histórico. |
@@ -97,13 +108,18 @@ Núcleo del análisis espacial: define una zona de estudio y el plugin consulta 
 | --- | --- |
 | **Punto** | Identificación con un clic. Aplica un pequeño buffer alrededor del punto para capturar también elementos colindantes. |
 | **Área** | Dibujo manual de un polígono (clic izquierdo para añadir vértices, clic derecho para terminar). |
-| **TTMM** | Busca un **término municipal** por nombre (autocompletado desde 3 letras, sin distinguir tildes) y lo usa directamente como zona de estudio. Si el municipio tiene enclaves o islas, se unifican en una sola geometría. |
+| **TTMM** | Busca un **término municipal** por nombre (autocompletado desde 3 letras, sin distinguir tildes) y lo usa directamente como zona de estudio. Si el municipio tiene enclaves o islas, se unifican en una sola geometría. Los municipios colindantes que solo comparten límite **no** aparecen en los resultados. |
 | **Importar** | Carga un polígono desde un archivo externo (KMZ, KML, Shapefile, GeoJSON, GPKG). |
 | **Limpiar** | Borra la zona de estudio dibujada pero conserva la tabla de resultados. |
 
 ### 2. Qué se analiza
 
 ENP, Red Natura 2000 (ZEC y ZEPA), Montes de Utilidad Pública, Vías Pecuarias, IBAs, Áreas Marinas Protegidas (RAMPE), malla de riqueza de especies y Convenios Internacionales (MAB, RAMSAR, OSPAR, ZEPIM, Geoparques). Incluye también el análisis de masas de agua mediante OGC API Features y el cruce con provincias y términos municipales.
+
+**Cómo se cuentan los resultados** *(v2.1.4)*
+
+- Cada entidad es **un resultado propio**: cada municipio, cada provincia, cada CCAA y cada espacio protegido aparecen por separado en las capas de corte, el informe y el CSV. Los fragmentos de una misma entidad se unen en uno solo.
+- Solo cuentan los **cruces reales**: un simple roce de límites con un colindante, o una astilla de milímetros por redondeo de coordenadas, se ignora. Para los polígonos se exige al menos 1 m² y 1 m de ancho medio; para las líneas (p. ej. vías pecuarias), un tramo de al menos 1 m.
 
 ### 3. Acciones y resultados
 
@@ -199,15 +215,22 @@ Al pulsar el botón de Copernicus se abre una **galería de tarjetas** con color
 
 Haz clic en un índice de la galería y después en el mapa: se abre la **serie temporal completa desde 2017**, con una observación cada 5 días (se descartan nubes y sombras con la banda SCL, y escenas con más de un 80 % de nubosidad).
 
+- **Consulta:** mientras se descarga la serie ves un cuadro de espera con el tiempo transcurrido y un botón **Cancelar**; puede tardar un par de minutos.
 - **Periodo:** botones de 1, 3 y 5 años o todo el histórico, sin repetir la consulta.
 - **Comparar dos índices:** **+ Añadir índice** superpone un segundo índice (p. ej. NDVI frente a NDMI, o NBR frente a BAI), cada uno con su eje Y y su color.
-- **Lectura:** observaciones brutas atenuadas de fondo y media móvil encima; al pasar el ratón se muestran la fecha y el valor exacto del punto más cercano.
+- **Lectura:** observaciones brutas atenuadas de fondo y, encima, una **curva suavizada (regresión local tipo LOWESS, ventana de ±30 días)** que sigue bien los picos estacionales y resiste a las nubes y sombras residuales. La línea se corta cuando hay más de 60 días sin observaciones; al pasar el ratón se muestran la fecha y el valor exacto del punto más cercano.
 - **Zoom:** lupa por rectángulo, desplazamiento (*pan*) y *Home* para volver a la vista completa.
 - **Ficha del índice** bajo la gráfica: fórmula, rango típico y cómo interpretarlo.
 
 ### 3. Firma Espectral
 
 Para un punto y una **fecha aproximada**, el plugin busca la adquisición más despejada de nubes en una ventana de **±15 días** y dibuja la reflectancia de las 12 bandas frente a la longitud de onda.
+
+**Selector de fecha** *(también en Ver Imagen)*
+
+- La fecha elegida se muestra en grande, con el rango de días que se explorará.
+- **Atajos** (Hoy, Hace 1 mes, Hace 6 meses, Hace 1 año), **estación del año** y año, y calendario para el día exacto.
+- **Línea temporal de imágenes disponibles:** una barra por cada imagen Sentinel-2 sobre tu punto, coloreada por su parte despejada (verde despejada, ámbar parcial, gris nublada). Se abre con una ventana de unos 6 meses centrada en la fecha (◀ ▶ para moverla, *Ver año completo* para todo el año). Al pasar el ratón ves fecha y % despejado, y al pinchar eliges ese día. Se carga en segundo plano; si Copernicus no responde, puedes elegir fecha igualmente.
 
 - **Fecha usada:** se indica cuál es, la diferencia con la pedida y la cobertura despejada en el punto (con aviso si es baja).
 - **Referencia más parecida:** compara tu firma con 7 firmas de referencia (*vegetación sana, vegetación seca (NPV), suelo desnudo, urbano/construido, quemado/carbón, agua y nieve*) usando el **ángulo espectral (SAM)**.
@@ -238,7 +261,7 @@ El botón **Exportar** del Índice Histórico y de la Firma Espectral ofrece:
 
 ### 6. Autenticación y cuota
 
-Necesitas una cuenta gratuita en [dataspace.copernicus.eu](https://dataspace.copernicus.eu) y un **OAuth Client** (Client ID y Client Secret) creado en el *Dashboard* de Sentinel Hub: **no** es el usuario y contraseña de tu cuenta. El plugin te lo pide una sola vez, con instrucciones paso a paso, y lo guarda cifrado en el *Authentication Manager* de QGIS.
+Necesitas una cuenta gratuita en [dataspace.copernicus.eu](https://dataspace.copernicus.eu) y un **OAuth Client** (Client ID y Client Secret) creado en el *Dashboard* de Sentinel Hub: **no** es el usuario y contraseña de tu cuenta. El plugin te lo pide una sola vez al pulsar el botón de Copernicus, con instrucciones paso a paso, lo **valida contra Copernicus** antes de guardarlo (si es incorrecto te avisa en el propio cuadro) y lo guarda cifrado en el *Authentication Manager* de QGIS. Si más adelante dejara de funcionar (caducado o revocado), te lo vuelve a pedir. 🎬 Vídeo: [cómo crear tu cuenta de Copernicus](https://youtu.be/ZCe_QHzibbg).
 
 Una cuenta gratuita (*Copernicus General*) dispone de **10.000 unidades de procesamiento y 10.000 peticiones al mes**, que se renuevan el día 1. Las series históricas y las firmas suelen consumir poco; **Ver Imagen consume más cuanto mayor es el área**. Puedes consultar tu saldo en el Dashboard de CDSE.
 
@@ -250,6 +273,11 @@ Los datos proceden del programa **Copernicus** (ESA / Unión Europea), de acceso
 
 ## 🔄 Historial de versiones (Changelog)
 
+- **Versión 2.1.4:**
+  - **Identificación:** corregido el agrupamiento de resultados (municipios por provincia y provincias por CCAA, y también ENP, Red Natura 2000… por figura), que hacía perder entidades en el corte, el informe y el CSV. Descartados los *minicruces* con colindantes.
+  - **Barra inferior:** corregido el botón de Calidad Ambiental; los botones que cargan grupos de capas los dejan plegados y desmarcados al terminar.
+  - **Copernicus:** credenciales pedidas al pulsar el botón y validadas al introducirlas; nuevo selector de fecha con línea temporal de imágenes disponibles; suavizado LOWESS en el Índice Histórico; cuadro de espera con *Cancelar*.
+  - **Ayuda:** nuevo botón «?» con manual, vídeos e incidencias; vídeo de demostración actualizado y vídeo de creación de cuenta de Copernicus.
 - **Versión 2.1.3:**
   - **Exportar gráficas:** botón *Exportar* en el Índice Histórico y la Firma Espectral para guardar la gráfica como imagen (PNG, JPG, SVG, PDF) o los datos como CSV (formato Excel en español o estándar).
   - **Servicios Web:** nuevos favoritos (botón ☆ Favorito y menú contextual), con grupo «⭐ Favoritos» fijo arriba del árbol y persistencia entre sesiones.
