@@ -263,7 +263,7 @@ El botón **Exportar** del Índice Histórico y de la Firma Espectral ofrece:
 
 Necesitas una cuenta gratuita en [dataspace.copernicus.eu](https://dataspace.copernicus.eu) y un **OAuth Client** (Client ID y Client Secret) creado en el *Dashboard* de Sentinel Hub: **no** es el usuario y contraseña de tu cuenta. El plugin te lo pide una sola vez al pulsar el botón de Copernicus, con instrucciones paso a paso, lo **valida contra Copernicus** antes de guardarlo (si es incorrecto te avisa en el propio cuadro) y lo guarda cifrado en el *Authentication Manager* de QGIS. Si más adelante dejara de funcionar (caducado o revocado), te lo vuelve a pedir. 🎬 Vídeo: [cómo crear tu cuenta de Copernicus](https://youtu.be/ZCe_QHzibbg).
 
-Una cuenta gratuita (*Copernicus General*) dispone de **10.000 unidades de procesamiento y 10.000 peticiones al mes**, que se renuevan el día 1. Las series históricas y las firmas suelen consumir poco; **Ver Imagen consume más cuanto mayor es el área**. Puedes consultar tu saldo en el Dashboard de CDSE.
+Una cuenta gratuita (*Copernicus General*) dispone de **30.000 unidades de procesamiento y 30.000 peticiones al mes** (cuota vigente en octubre de 2026; Copernicus puede modificarla), que se renuevan el día 1. Las series históricas y las firmas suelen consumir poco; **Ver Imagen consume más cuanto mayor es el área**. Puedes consultar tu saldo en el Dashboard de CDSE.
 
 ### 7. Origen de los datos y licencia
 
