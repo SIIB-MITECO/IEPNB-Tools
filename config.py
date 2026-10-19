@@ -892,3 +892,17 @@ REFERENCIAS_FIRMA = {
     },
 }
 
+
+
+# =====================================================================
+# ENLACES DE AYUDA (menú "?" de la cabecera y diálogo de credenciales)
+# =====================================================================
+URL_REPOSITORIO = "https://github.com/SIIB-MITECO/IEPNB-Tools"
+# Vídeo de demostración en YouTube (si se resube, actualizar aquí).
+URL_VIDEO = "https://youtu.be/LVny1YTdC6M"
+# Ojo: el nombre del PDF lleva la versión; al subir un manual nuevo, cambiarlo aquí.
+URL_MANUAL = URL_REPOSITORIO + "/blob/main/Manual_IEPNB_Tools_v2.1.4.pdf"
+URL_INCIDENCIAS = URL_REPOSITORIO + "/issues"
+# Guía para crear la cuenta de Copernicus y el OAuth Client. Mientras esté
+# vacía, los botones que la enlazan no se muestran.
+URL_GUIA_CUENTA_COPERNICUS = "https://youtu.be/ZCe_QHzibbg"

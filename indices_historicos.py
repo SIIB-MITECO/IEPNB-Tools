@@ -17,21 +17,23 @@ espectral elegido (NDVI, NDWI, NBR, EVI) usando Sentinel-2 L2A.
 """
 
 import json
+import time
 from datetime import datetime, timezone
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QByteArray, QEventLoop, QSettings
+from qgis.PyQt.QtCore import Qt, QUrl, QUrlQuery, QByteArray, QEventLoop, QSettings, QTimer
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLineEdit,
                                  QPushButton, QLabel, QMessageBox, QDialogButtonBox,
-                                 QHBoxLayout, QMenu, QApplication)
+                                 QHBoxLayout, QMenu, QApplication, QProgressDialog)
 from qgis.PyQt import QtNetwork
 from qgis.core import (QgsApplication, QgsAuthMethodConfig, QgsNetworkAccessManager,
                        QgsCoordinateReferenceSystem, QgsCoordinateTransform,
-                       QgsProject, QgsPointXY)
+                       QgsProject, QgsPointXY, QgsMessageLog, Qgis)
 
 from .config import (CDSE_AUTH_URL, CDSE_STATS_URL,
-                     CDSE_AUTHCFG_SETTING, INDICE_FORMULAS, CATEGORIAS_INDICES)
+                     CDSE_AUTHCFG_SETTING, INDICE_FORMULAS, CATEGORIAS_INDICES,
+                     URL_GUIA_CUENTA_COPERNICUS)
 from .exportar import crear_boton_exportar, exportar_figura, exportar_csv
 
 # --- Matplotlib embebido: compatible con QGIS3 (Qt5) y QGIS4 (Qt6) ---
@@ -56,13 +58,22 @@ class DialogoCredencialesCDSE(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Copernicus Data Space Ecosystem - Credenciales")
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(440)
         layout = QVBoxLayout(self)
+
+        aviso = QLabel(
+            "<b>Para consultar imágenes Sentinel-2 necesitas una cuenta gratuita de "
+            "Copernicus.</b><br>Solo tendrás que hacer esto <b>una vez</b>: las "
+            "credenciales se guardan cifradas en QGIS y no se volverán a pedir.")
+        aviso.setWordWrap(True)
+        aviso.setStyleSheet(
+            "background-color: #e8f1fb; color: #1b3a5c; padding: 8px; "
+            "border-radius: 4px; border: 1px solid #c5daf0;")
+        layout.addWidget(aviso)
 
         layout.addWidget(QLabel(
             "Introduce el Client ID y Client Secret de tu OAuth Client de "
-            "Sentinel Hub (no es tu usuario/contraseña de la cuenta). Se "
-            "guardan cifrados en el gestor de autenticación de QGIS."))
+            "Sentinel Hub (no es tu usuario/contraseña de la cuenta)."))
 
         instrucciones = QLabel(
             '<b>¿Cómo consigo estas credenciales?</b><br>'
@@ -81,10 +92,17 @@ class DialogoCredencialesCDSE(QDialog):
             "padding: 8px; border-radius: 4px; border: 1px solid #e0e0e0;")
         layout.addWidget(instrucciones)
 
+        fila_enlaces = QHBoxLayout()
         btn_dashboard = QPushButton("Abrir dataspace.copernicus.eu")
         btn_dashboard.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl("https://dataspace.copernicus.eu")))
-        layout.addWidget(btn_dashboard)
+        fila_enlaces.addWidget(btn_dashboard)
+        if URL_GUIA_CUENTA_COPERNICUS:
+            btn_guia = QPushButton("Guía paso a paso")
+            btn_guia.clicked.connect(
+                lambda: QDesktopServices.openUrl(QUrl(URL_GUIA_CUENTA_COPERNICUS)))
+            fila_enlaces.addWidget(btn_guia)
+        layout.addLayout(fila_enlaces)
 
         form = QFormLayout()
         self.txt_client_id = QLineEdit()
@@ -94,11 +112,44 @@ class DialogoCredencialesCDSE(QDialog):
         form.addRow("Client Secret:", self.txt_client_secret)
         layout.addLayout(form)
 
+        self.lbl_error = QLabel()
+        self.lbl_error.setWordWrap(True)
+        self.lbl_error.setStyleSheet("color: #b00020;")
+        self.lbl_error.setVisible(False)
+        layout.addWidget(self.lbl_error)
+
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         botones.accepted.connect(self.accept)
         botones.rejected.connect(self.reject)
         layout.addWidget(botones)
+
+    def _mostrar_error(self, texto):
+        self.lbl_error.setText(texto)
+        self.lbl_error.setVisible(True)
+
+    def accept(self):
+        """Comprueba las credenciales contra Copernicus antes de aceptarlas:
+        así un error al copiarlas se detecta aquí y no al intentar una consulta."""
+        if not self.client_id or not self.client_secret:
+            self._mostrar_error("Client ID y Client Secret son obligatorios.")
+            return
+        self.lbl_error.setVisible(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            obtener_token_cdse(self.client_id, self.client_secret)
+        except ErrorCredencialesCDSE as exc:
+            QApplication.restoreOverrideCursor()
+            self._mostrar_error(
+                f"Copernicus no acepta estas credenciales ({exc}). Revisa que has copiado "
+                "bien el Client ID y el Client Secret del OAuth Client (no tu usuario).")
+            return
+        except RuntimeError as exc:
+            QApplication.restoreOverrideCursor()
+            self._mostrar_error(f"No se han podido comprobar las credenciales: {exc}")
+            return
+        QApplication.restoreOverrideCursor()
+        super().accept()
 
     @property
     def client_id(self):
@@ -157,6 +208,11 @@ def olvidar_credenciales_cdse():
 # TOKEN OAuth2
 # =====================================================================
 
+class ErrorCredencialesCDSE(RuntimeError):
+    """Copernicus ha rechazado el Client ID / Client Secret (a diferencia de un
+    fallo de red, que no tiene arreglo cambiando las credenciales)."""
+
+
 def obtener_token_cdse(client_id, client_secret):
     """POST síncrono al Identity Provider de CDSE (OAuth2 client_credentials,
     el flujo correcto para Process/Statistical API). Devuelve access_token o
@@ -180,6 +236,7 @@ def obtener_token_cdse(client_id, client_secret):
 
     raw = bytes(reply.readAll())
     error = reply.error()
+    estado_http = reply.attribute(QtNetwork.QNetworkRequest.Attribute.HttpStatusCodeAttribute)
     reply.deleteLater()
 
     if error != QtNetwork.QNetworkReply.NetworkError.NoError:
@@ -187,12 +244,44 @@ def obtener_token_cdse(client_id, client_secret):
             detalle = json.loads(raw).get("error_description", raw.decode("utf-8", "ignore"))
         except Exception:
             detalle = raw.decode("utf-8", "ignore") or str(error)
+        if estado_http in (400, 401, 403):
+            raise ErrorCredencialesCDSE(detalle)
         raise RuntimeError(f"Autenticación CDSE fallida: {detalle}")
 
     payload = json.loads(raw)
     if "access_token" not in payload:
         raise RuntimeError(f"CDSE no devolvió token de acceso: {payload}")
     return payload["access_token"]
+
+
+def obtener_token_interactivo(parent_widget):
+    """Credenciales (guardadas o pedidas) -> token de acceso. Si las guardadas
+    ya no valen (secret regenerado, OAuth Client borrado...), lo explica, las
+    olvida y las pide de nuevo. Devuelve None si el usuario cancela o si hay un
+    fallo de red (que se avisa aquí mismo)."""
+    for _ in range(2):
+        client_id, client_secret = obtener_credenciales_cdse(parent_widget)
+        if not client_id:
+            return None
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            token = obtener_token_cdse(client_id, client_secret)
+        except ErrorCredencialesCDSE as exc:
+            QApplication.restoreOverrideCursor()
+            olvidar_credenciales_cdse()
+            QMessageBox.warning(
+                parent_widget, "Copernicus",
+                f"Las credenciales guardadas ya no son válidas ({exc}).\n\n"
+                "Introduce tus credenciales de nuevo.")
+            continue
+        except RuntimeError as exc:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(parent_widget, "Copernicus", str(exc))
+            return None
+        QApplication.restoreOverrideCursor()
+        return token
+    return None
 
 
 # =====================================================================
@@ -269,9 +358,14 @@ def punto_a_poligono(lat, lon, lado_m=20):
 # CONSULTA A LA STATISTICAL API
 # =====================================================================
 
+class ConsultaCancelada(Exception):
+    """El usuario ha pulsado Cancelar durante la consulta."""
+
+
 def consultar_historico_indice(token, lat, lon, indice, fecha_inicio, fecha_fin,
-                               intervalo="P1M"):
-    """Devuelve una lista [(datetime, valor_medio), ...] ordenada por fecha."""
+                               intervalo="P1M", progreso=None):
+    """Devuelve una lista [(datetime, valor_medio), ...] ordenada por fecha.
+    Si se pasa un QProgressDialog, su botón Cancelar aborta la petición en curso."""
     poligono, crs_uri = punto_a_poligono(lat, lon)
     cuerpo = {
         "input": {
@@ -304,12 +398,16 @@ def consultar_historico_indice(token, lat, lon, indice, fecha_inicio, fecha_fin,
     loop = QEventLoop()
     reply = network_manager.post(request, QByteArray(json.dumps(cuerpo).encode("utf-8")))
     reply.finished.connect(loop.quit)
+    if progreso is not None:
+        progreso.canceled.connect(reply.abort)
     loop.exec()
 
     raw = bytes(reply.readAll())
     error = reply.error()
     reply.deleteLater()
 
+    if error == QtNetwork.QNetworkReply.NetworkError.OperationCanceledError:
+        raise ConsultaCancelada()
     if error != QtNetwork.QNetworkReply.NetworkError.NoError:
         try:
             detalle = json.loads(raw)
@@ -319,6 +417,51 @@ def consultar_historico_indice(token, lat, lon, indice, fecha_inicio, fecha_fin,
 
     payload = json.loads(raw)
     return _parsear_respuesta_statistics(payload)
+
+
+def consultar_historico_con_progreso(parent, token, lat, lon, indice,
+                                     fecha_inicio, fecha_fin, intervalo="P5D"):
+    """Como consultar_historico_indice (una sola petición para todo el periodo),
+    pero mostrando un cuadro de espera con el tiempo transcurrido y un botón
+    Cancelar. Devuelve la serie, o None si el usuario cancela."""
+    dlg = QProgressDialog("Conectando con Copernicus…", "Cancelar", 0, 0, parent)
+    dlg.setWindowTitle(f"Histórico {indice}")
+    dlg.setWindowModality(Qt.WindowModality.WindowModal)
+    dlg.setMinimumDuration(0)
+    dlg.setAutoClose(False)
+    dlg.setAutoReset(False)
+    dlg.setMinimumWidth(420)
+
+    t0 = time.monotonic()
+
+    def refrescar():
+        seg = int(time.monotonic() - t0)
+        dlg.setLabelText(
+            f"Consultando {indice} en Copernicus (Sentinel-2)…\n"
+            f"Tiempo transcurrido: {seg // 60}:{seg % 60:02d}\n\n"
+            "El histórico completo puede tardar un par de minutos. "
+            "No cierres QGIS.")
+
+    temporizador = QTimer(dlg)
+    temporizador.timeout.connect(refrescar)
+    temporizador.start(1000)
+    refrescar()
+    dlg.show()
+    QApplication.processEvents()
+
+    try:
+        serie = consultar_historico_indice(
+            token, lat, lon, indice, fecha_inicio, fecha_fin, intervalo, progreso=dlg)
+        QgsMessageLog.logMessage(
+            f"Histórico {indice}: {time.monotonic() - t0:.1f} s ({len(serie)} observaciones)",
+            "IEPNB Tools", Qgis.MessageLevel.Info)
+        return serie
+    except ConsultaCancelada:
+        return None
+    finally:
+        temporizador.stop()
+        dlg.close()
+        dlg.deleteLater()
 
 
 def _parsear_respuesta_statistics(payload):
@@ -376,24 +519,97 @@ COLOR_POR_INDICE = {
 }
 
 
-def _media_movil(valores, ventana):
-    """Media móvil centrada de 'ventana' puntos (suaviza sin depender de
-    numpy/scipy). Con ventana<=1 o pocos datos, devuelve la serie tal cual."""
+MIN_OBS_SUAVIZADO = 20     # con menos observaciones se dibujan tal cual
+SEMIANCHO_DIAS = 30        # la curva de cada fecha usa las observaciones a ±30 días
+HUECO_MAX_DIAS = 60        # sin observaciones durante más de esto -> la línea se corta
+
+
+def _suavizar_por_tiempo(fechas, valores, semiancho_dias=SEMIANCHO_DIAS):
+    """Regresión local ponderada (tipo LOWESS) sobre el eje temporal real.
+
+    Para cada fecha ajusta una recta a las observaciones que caen a ±semiancho_dias,
+    con pesos tricúbicos (más peso cuanto más cerca) y una pasada robusta que resta
+    peso a los valores muy alejados de la curva (nubes o sombras residuales). La
+    ventana se mide en días, no en número de puntos, así que el suavizado es el
+    mismo con muchas o con pocas imágenes despejadas, y sigue los picos mejor que
+    una media móvil. Devuelve una lista del mismo tamaño que 'valores'."""
     n = len(valores)
-    if ventana <= 1 or n < ventana:
+    if n < MIN_OBS_SUAVIZADO:
         return list(valores)
-    mitad = ventana // 2
-    return [
-        sum(valores[max(0, i - mitad):min(n, i + mitad + 1)]) /
-        len(valores[max(0, i - mitad):min(n, i + mitad + 1)])
-        for i in range(n)
-    ]
+    x = [f.timestamp() / 86400.0 for f in fechas]
+    h = float(semiancho_dias)
+
+    def ajustar(pesos_extra):
+        salida = []
+        j0 = 0
+        for i in range(n):
+            while x[j0] < x[i] - h:
+                j0 += 1
+            idx = []
+            j = j0
+            while j < n and x[j] <= x[i] + h:
+                idx.append(j)
+                j += 1
+            w = []
+            for j in idx:
+                u = abs(x[j] - x[i]) / h
+                peso = (1 - u ** 3) ** 3 if u < 1 else 0.0
+                w.append(peso * (pesos_extra[j] if pesos_extra else 1.0))
+            sw = sum(w)
+            if len(idx) < 3 or sw <= 1e-12:
+                salida.append(valores[i])
+                continue
+            xm = sum(wi * x[j] for wi, j in zip(w, idx)) / sw
+            ym = sum(wi * valores[j] for wi, j in zip(w, idx)) / sw
+            sxx = sum(wi * (x[j] - xm) ** 2 for wi, j in zip(w, idx))
+            if sxx <= 1e-12:
+                salida.append(ym)
+                continue
+            sxy = sum(wi * (x[j] - xm) * (valores[j] - ym) for wi, j in zip(w, idx))
+            y = ym + (sxy / sxx) * (x[i] - xm)
+            # Que la recta no se dispare en los extremos: dentro del rango local
+            vmin = min(valores[j] for j in idx)
+            vmax = max(valores[j] for j in idx)
+            salida.append(min(max(y, vmin), vmax))
+        return salida
+
+    # Referencia robusta para detectar valores anómalos: la mediana local. Una
+    # nube residual en el borde de un hueco arrastraría un ajuste por mínimos
+    # cuadrados hacia ella, pero no a la mediana.
+    referencia = []
+    j0 = 0
+    for i in range(n):
+        while x[j0] < x[i] - h:
+            j0 += 1
+        ventana = []
+        j = j0
+        while j < n and x[j] <= x[i] + h:
+            ventana.append(valores[j])
+            j += 1
+        ventana.sort()
+        referencia.append(ventana[len(ventana) // 2] if len(ventana) >= 3 else valores[i])
+    residuos = [abs(v - c) for v, c in zip(valores, referencia)]
+    mediana = sorted(residuos)[n // 2]
+    if mediana <= 1e-12:
+        return ajustar(None)
+    robustos = []
+    for r in residuos:
+        u = r / (6 * mediana)
+        robustos.append((1 - u * u) ** 2 if u < 1 else 0.0)
+    return ajustar(robustos)
 
 
-def _ventana_suavizado(n):
-    """Ventana de la media móvil según el número de observaciones: más ancha
-    cuantos más puntos haya (la misma lógica para dibujar y para exportar)."""
-    return 9 if n >= 200 else (5 if n >= 60 else (3 if n >= 20 else 1))
+def _con_huecos(fechas, valores, hueco_max_dias=HUECO_MAX_DIAS):
+    """Copia (fechas, valores) insertando un NaN donde haya un hueco largo sin
+    observaciones, para que matplotlib corte la línea en vez de cruzarlo."""
+    f_out, v_out = [], []
+    for k, (f, v) in enumerate(zip(fechas, valores)):
+        if k and (f - fechas[k - 1]).days > hueco_max_dias:
+            f_out.append(fechas[k - 1] + (f - fechas[k - 1]) / 2)
+            v_out.append(float("nan"))
+        f_out.append(f)
+        v_out.append(v)
+    return f_out, v_out
 
 
 class GraficaIndiceDialog(QDialog):
@@ -577,18 +793,21 @@ class GraficaIndiceDialog(QDialog):
         if not client_id:
             return
 
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             token = obtener_token_cdse(client_id, client_secret)
-            hoy = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            serie2 = consultar_historico_indice(
-                token, self.lat, self.lon, indice2,
-                fecha_inicio="2017-01-01T00:00:00Z", fecha_fin=hoy, intervalo="P5D")
-        except Exception as exc:
             QApplication.restoreOverrideCursor()
+            hoy = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            serie2 = consultar_historico_con_progreso(
+                self, token, self.lat, self.lon, indice2,
+                "2017-01-01T00:00:00Z", hoy, "P5D")
+        except Exception as exc:
+            while QApplication.overrideCursor():
+                QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, "Añadir índice", str(exc))
             return
-        QApplication.restoreOverrideCursor()
+        if serie2 is None:   # cancelado por el usuario
+            return
 
         if not serie2:
             QMessageBox.information(self, "Añadir índice",
@@ -658,24 +877,24 @@ class GraficaIndiceDialog(QDialog):
         tam_marcador = 4 if n < 80 else (2.5 if n < 250 else 0)
         grosor_linea = 1.3 if n < 250 else 0.9
 
-        # Media móvil para suavizar el ruido de nubes residual; ventana más
-        # ancha cuantos más puntos haya.
-        ventana = _ventana_suavizado(n)
-        suavizado = _media_movil(valores, ventana)
+        # Curva suavizada por tiempo (ver _suavizar_por_tiempo) para quitar el
+        # ruido de nubes residual; con pocas observaciones se dibuja tal cual.
+        suavizado = _suavizar_por_tiempo(fechas, valores)
 
-        if ventana > 1:
+        if n >= MIN_OBS_SUAVIZADO:
             # Datos crudos: puntos finos y atenuados, de fondo
             self.ax.scatter(fechas, valores, s=6, color=color, alpha=0.25, zorder=2, linewidths=0)
             # Curva suavizada: la que se lee de verdad
-            self.ax.plot(fechas, suavizado, linewidth=2.0, color=color, alpha=0.95, zorder=3,
+            f_plot, s_plot = _con_huecos(fechas, suavizado)
+            self.ax.plot(f_plot, s_plot, linewidth=2.0, color=color, alpha=0.95, zorder=3,
                         solid_capstyle="round")
-            self.ax.fill_between(fechas, suavizado, min(suavizado), color=color, alpha=0.12, zorder=1)
+            self.ax.fill_between(f_plot, s_plot, 0, color=color, alpha=0.12, zorder=1)
             valores_linea = suavizado
         else:
             self.ax.plot(fechas, valores, marker="o", markersize=tam_marcador,
                         markerfacecolor=color, markeredgecolor="none",
                         linewidth=grosor_linea, color=color, alpha=0.9, zorder=3)
-            self.ax.fill_between(fechas, valores, min(valores), color=color, alpha=0.12, zorder=1)
+            self.ax.fill_between(fechas, valores, 0, color=color, alpha=0.12, zorder=1)
             valores_linea = valores
 
         # Marcador que se mueve al pasar el ratón (invisible hasta el primer hover)
@@ -692,12 +911,11 @@ class GraficaIndiceDialog(QDialog):
         if serie2:
             fechas2 = [f for f, _ in serie2]
             valores2 = [v for _, v in serie2]
-            n2 = len(valores2)
-            ventana2 = _ventana_suavizado(n2)
-            valores2_linea = _media_movil(valores2, ventana2)
+            valores2_linea = _suavizar_por_tiempo(fechas2, valores2)
+            f2_plot, v2_plot = _con_huecos(fechas2, valores2_linea)
 
             self.ax2 = self.ax.twinx()
-            self.ax2.plot(fechas2, valores2_linea, linewidth=1.8, color=self.color2,
+            self.ax2.plot(f2_plot, v2_plot, linewidth=1.8, color=self.color2,
                          alpha=0.9, zorder=4, linestyle="--")
             self.ax2.set_ylabel(self.indice2, fontsize=10, color=self.color2, fontweight="bold")
             self.ax2.tick_params(axis="y", labelcolor=self.color2, labelsize=9)

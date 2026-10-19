@@ -25,20 +25,22 @@ from qgis.PyQt.QtCore import Qt, QUrl, QSize, QTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QDesktopServices
 from qgis.PyQt.QtWidgets import (QAction, QDockWidget, QTabWidget, QWidget,
                                  QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                                 QToolButton, QDialog, QMessageBox, QApplication)
+                                 QToolButton, QDialog, QMessageBox, QApplication, QMenu)
 
 from qgis.gui import QgsMapTool
 from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform, QgsRasterLayer, QgsRectangle)
+                       QgsCoordinateTransform, QgsRasterLayer, QgsRectangle,
+                       QgsMessageLog, Qgis, QgsLayerTreeGroup)
 
 from .identify import IdentifyTab
 from .territory import TerritoryTab
 from .species import SpeciesTab
 from .services_iepnb import ServicesIEPNBTab
 from .ceneam import CeneamTab
-from .config import CATALOGO_WMS, VER_IMAGEN_MAX_AREA_KM2
-from .indices_historicos import (obtener_credenciales_cdse, obtener_token_cdse,
-                                 consultar_historico_indice, GraficaIndiceDialog)
+from .config import (CATALOGO_WMS, VER_IMAGEN_MAX_AREA_KM2, URL_MANUAL, URL_VIDEO,
+                     URL_INCIDENCIAS, URL_GUIA_CUENTA_COPERNICUS)
+from .indices_historicos import (obtener_credenciales_cdse, obtener_token_interactivo,
+                                 consultar_historico_con_progreso, GraficaIndiceDialog)
 from .firma_espectral import (FirmaEspectralTool, DialogoFechaAproximada,
                               buscar_mejor_fecha, consultar_firma_espectral,
                               FirmaEspectralDialog)
@@ -127,6 +129,35 @@ class IepnbTools:
         if self.dockwidget:
             self.iface.removeDockWidget(self.dockwidget)
 
+    def _crear_boton_ayuda(self):
+        """Botón '?' de la cabecera con los enlaces de ayuda del plugin. Las
+        URL viven en config.py; la guía de la cuenta de Copernicus solo se
+        muestra cuando ya está publicada."""
+        boton = QToolButton()
+        boton.setText("?")
+        boton.setToolTip("Ayuda")
+        boton.setFixedSize(22, 22)
+        boton.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        boton.setStyleSheet("""
+            QToolButton { border: 1px solid #0078d4; border-radius: 11px; background-color: white;
+                          color: #0078d4; font-weight: bold; font-size: 12px; }
+            QToolButton:hover { background-color: #f0f7ff; border-width: 2px; }
+            QToolButton::menu-indicator { image: none; }
+        """)
+
+        enlaces = [("📖 Manual de uso (PDF)", URL_MANUAL),
+                   ("▶️ Vídeo de demostración", URL_VIDEO)]
+        if URL_GUIA_CUENTA_COPERNICUS:
+            enlaces.append(("🛰️ Cómo crear tu cuenta de Copernicus", URL_GUIA_CUENTA_COPERNICUS))
+        enlaces.append(("🐞 Notificar un problema", URL_INCIDENCIAS))
+
+        menu = QMenu(boton)
+        for texto, url in enlaces:
+            menu.addAction(texto).triggered.connect(
+                lambda _checked=False, u=url: QDesktopServices.openUrl(QUrl(u)))
+        boton.setMenu(menu)
+        return boton
+
     def reset_map_cursor(self):
         """Devuelve el cursor al estado de navegación estándar de QGIS"""
         self.iface.actionPan().trigger()
@@ -159,6 +190,7 @@ class IepnbTools:
             title_lbl.setStyleSheet("font-weight: bold; font-size: 10px; color: #333; margin-left: 5px;")
             header_layout.addWidget(title_lbl)
             header_layout.addStretch()
+            header_layout.addWidget(self._crear_boton_ayuda())
             main_layout.addWidget(header_widget)
 
             # --- TABS ---
@@ -189,8 +221,7 @@ class IepnbTools:
                 QPushButton:hover { background-color: #f0f7ff; border-width: 2px; }
             """
 
-            # Lista actualizada con CEA.png
-            # Lista actualizada con las nuevas claves por bloques de CATALOGO_WMS
+            # (icono, tooltip, claves de CATALOGO_WMS a cargar o acción especial)
             configs = [
                 ("BDN.png", "Banco de Datos de la Naturaleza",
                  ["[IEPNB] EIKOS - Cambios Anuales de Vegetación",
@@ -201,12 +232,10 @@ class IepnbTools:
                   "[IEPNB] Ecosistemas, Hábitats y Paisaje",
                   "[IEPNB] Mapa Forestal Español (Foto Fija MFE)",
                   "[IEPNB] Convenios Internacionales",
-                  "[IEPNB] Espacios Protegidos y Propiedad"],
-                 "Espacios Naturales Protegidos (ENP)"),
+                  "[IEPNB] Espacios Protegidos y Propiedad"]),
 
                 ("SNCZI.png", "SN Cartografía de Zonas Inundables",
-                 "[DGA] SNCZI - Cartografía de Zonas Inundables",
-                 "Áreas con riesgo potencial significativo de inundación (ARPSI)"),
+                 "[DGA] SNCZI - Cartografía de Zonas Inundables"),
 
                 ("SIR.png", "Sistema de Información de Redes - DGA",
                  ["[DGA] Hidrología Cuantitativa (SIMPA, SAIH, ERHIN)",
@@ -216,29 +245,26 @@ class IepnbTools:
                   "[DGA] Seguimiento y Control de Aguas Superficiales",
                   "[DGA] Seguimiento y Control de Aguas Subterráneas",
                   "[DGA] Masas de Agua y Estado (PHC 2022-2027)",
-                  "[DGA] Planificación, Ámbitos e Hidrografía"],
-                 "Ríos (Pfafstetter)"),
+                  "[DGA] Planificación, Ámbitos e Hidrografía"]),
 
                 ("COSTAS.png", "Costas",
                  ["[DGC] Estrategias Marinas",
                   "[DGC] POEM - Planes de Ordenación del Espacio Marítimo",
-                  "[DGC] Dominio Público Marítimo-Terrestre y Gestión"],
-                 "Dominio Público Marítimo-Terrestre"),
+                  "[DGC] Dominio Público Marítimo-Terrestre y Gestión"]),
 
                 ("CEA.png", "Calidad y Evaluación Ambiental",
-                 ["[CALIDAD AMBIENTAL] Ruido Ambiental (UME y MER)",
-                  "[CALIDAD AMBIENTAL] Emisiones Industriales, Residuos y Sensibilidad Renovables",
-                  "[CALIDAD AMBIENTAL] Calidad del Aire (Evaluación por Contaminante)",
-                  "[CALIDAD AMBIENTAL] Calidad del Aire",
-                  "[CALIDAD AMBIENTAL] Cambio Climático y LULUCF"],
-                 "Estaciones de calidad del aire"),
+                 ["[DGCEA] Ruido Ambiental (UME y MER)",
+                  "[DGCEA] Emisiones Industriales, Residuos y Sensibilidad Renovables",
+                  "[DGCEA] Calidad del Aire (Evaluación por Contaminante)",
+                  "[DGCEA] Calidad del Aire",
+                  "[DGCEA] Cambio Climático y LULUCF"]),
 
-                ("mb.png", "Cartografía Base", "MAPA_BASE", None),
-                ("gsv.png", "Street View", "GSV", None),
-                ("indice.png", "Índice Histórico", "IDX", None)
+                ("mb.png", "Cartografía Base", "MAPA_BASE"),
+                ("gsv.png", "Street View", "GSV"),
+                ("indice.png", "Índice Histórico", "IDX")
             ]
 
-            for icon_name, tip, keys, priority_layer in configs:
+            for icon_name, tip, keys in configs:
                 # El botón de índice histórico necesita menú desplegable
                 # (elegir NDVI/NDWI/NBR/EVI en el propio clic del icono),
                 # el resto siguen siendo QPushButton normales.
@@ -300,7 +326,7 @@ class IepnbTools:
                 else:
                     sub_group = "Banco de Datos de la Naturaleza (BDN) - IEPNB" if icon_name == "BDN.png" else None
                     btn.clicked.connect(
-                        partial(self.load_multiple_categories, keys, priority_layer, "Servicios MITECO", sub_group))
+                        partial(self.load_multiple_categories, keys, "Servicios MITECO", sub_group))
 
                 buttons_row.addWidget(btn)
 
@@ -402,35 +428,22 @@ class IepnbTools:
             f"Índice histórico ({indice}): haz clic en el mapa sobre el punto de interés.", 5000)
 
     def on_punto_indice(self, lat, lon, indice):
-        # 1) Credenciales CDSE: Client ID / Client Secret del Dashboard de
-        #    Sentinel Hub (NO el usuario/contraseña de la cuenta personal).
-        #    Se piden una sola vez y quedan en el Authentication Manager de QGIS.
-        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
-        if not client_id:
-            return  # el usuario canceló el diálogo de credenciales
-
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.iface.mainWindow().statusBar().showMessage(
-            f"Consultando histórico {indice}...", 0)
-        try:
-            token = obtener_token_cdse(client_id, client_secret)
-
-            # Rango por defecto: desde el inicio de la cobertura Sentinel-2
-            # hasta hoy, agregado por mes (evita miles de puntos por nube).
-            hoy = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            serie = consultar_historico_indice(
-                token, lat, lon, indice,
-                fecha_inicio="2017-01-01T00:00:00Z",
-                fecha_fin=hoy,
-                intervalo="P5D")
-        except Exception as exc:
-            QApplication.restoreOverrideCursor()
-            self.iface.mainWindow().statusBar().clearMessage()
-            QMessageBox.critical(self.iface.mainWindow(), "Índice histórico", str(exc))
+        # Token CDSE a partir de las credenciales guardadas (ya pedidas al pulsar
+        # el botón de Copernicus; solo se vuelven a pedir si dejan de valer).
+        token = obtener_token_interactivo(self.iface.mainWindow())
+        if not token:
             return
 
-        QApplication.restoreOverrideCursor()
-        self.iface.mainWindow().statusBar().clearMessage()
+        try:
+            hoy = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            serie = consultar_historico_con_progreso(
+                self.iface.mainWindow(), token, lat, lon, indice,
+                "2017-01-01T00:00:00Z", hoy, "P5D")
+        except Exception as exc:
+            QMessageBox.critical(self.iface.mainWindow(), "Índice histórico", str(exc))
+            return
+        if serie is None:   # cancelado por el usuario
+            return
 
         dialogo = GraficaIndiceDialog(indice, lat, lon, serie, self.iface.mainWindow())
         dialogo.exec()
@@ -443,22 +456,26 @@ class IepnbTools:
             "Firma espectral: haz clic en el mapa sobre el punto de interés.", 5000)
 
     def on_punto_firma(self, lat, lon):
-        # 1) Fecha aproximada
-        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow())
+        # 1) Fecha aproximada (con la línea temporal de imágenes disponibles,
+        #    que necesita un token para consultar a Copernicus)
+        token = obtener_token_interactivo(self.iface.mainWindow())
+        if not token:
+            return
+        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow(), token, lat, lon)
         if dialogo_fecha.exec() != dialogo_fecha.DialogCode.Accepted:
             return
         fecha_pedida = dialogo_fecha.fecha_seleccionada()
 
-        # 2) Credenciales CDSE (mismas que el índice histórico)
-        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
-        if not client_id:
+        # 2) Token nuevo: el anterior puede haber caducado si el usuario ha
+        #    tardado en elegir fecha.
+        token = obtener_token_interactivo(self.iface.mainWindow())
+        if not token:
             return
 
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.iface.mainWindow().statusBar().showMessage(
             "Buscando la adquisición más despejada cerca de esa fecha...", 0)
         try:
-            token = obtener_token_cdse(client_id, client_secret)
             fecha_real, fraccion_valida = buscar_mejor_fecha(token, lat, lon, fecha_pedida)
             if fecha_real is None:
                 QApplication.restoreOverrideCursor()
@@ -487,7 +504,15 @@ class IepnbTools:
 
     def abrir_galeria_copernicus(self):
         """Punto de entrada del botón Copernicus: sustituye al antiguo
-        QMenu anidado por la galería de tarjetas (galeria_indices.py)."""
+        QMenu anidado por la galería de tarjetas (galeria_indices.py).
+
+        Las credenciales de Copernicus se piden aquí, antes de elegir nada, y
+        no al final del recorrido: así el usuario sabe desde el principio que
+        necesita una cuenta. Si ya están guardadas, no se pregunta nada."""
+        client_id, _ = obtener_credenciales_cdse(self.iface.mainWindow())
+        if not client_id:
+            return  # sin cuenta no hay nada que consultar: no abrimos la galería
+
         dialogo = GaleriaAccionesDialog(self.iface.mainWindow())
         if dialogo.exec() != QDialog.DialogCode.Accepted:
             return
@@ -537,20 +562,24 @@ class IepnbTools:
         """Común a punto y área: pide fecha aproximada, busca el día más
         despejado (evaluado en lat_busqueda/lon_busqueda -- el punto en sí,
         o el centroide del área dibujada) y descarga+carga la imagen."""
-        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow())
+        token = obtener_token_interactivo(self.iface.mainWindow())
+        if not token:
+            return
+        dialogo_fecha = DialogoFechaAproximada(self.iface.mainWindow(), token,
+                                               lat_busqueda, lon_busqueda)
         if dialogo_fecha.exec() != dialogo_fecha.DialogCode.Accepted:
             return
         fecha_pedida = dialogo_fecha.fecha_seleccionada()
 
-        client_id, client_secret = obtener_credenciales_cdse(self.iface.mainWindow())
-        if not client_id:
+        # Token nuevo: el anterior puede haber caducado durante la elección.
+        token = obtener_token_interactivo(self.iface.mainWindow())
+        if not token:
             return
 
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.iface.mainWindow().statusBar().showMessage(
             "Buscando la adquisición más despejada cerca de esa fecha...", 0)
         try:
-            token = obtener_token_cdse(client_id, client_secret)
             fecha_real, fraccion_valida = buscar_mejor_fecha(token, lat_busqueda, lon_busqueda, fecha_pedida)
             if fecha_real is None:
                 QApplication.restoreOverrideCursor()
@@ -600,8 +629,10 @@ class IepnbTools:
             descargar_fn=lambda token, fecha_real: descargar_imagen_area(token, geom_wgs84, estilo, fecha_real),
             etiqueta_ubicacion=f"área {area_km2:.1f} km²")
 
-    def load_multiple_categories(self, categories, visible_layer_name=None, main_group_name="Servicios MITECO",
-                                 sub_group_name=None):
+    def load_multiple_categories(self, categories, main_group_name="Servicios MITECO", sub_group_name=None):
+        """Carga (o, si ya estaban, quita) las categorías del catálogo. Al
+        terminar, las categorías quedan plegadas y ninguna capa activa: el
+        usuario despliega y marca las que quiera ver."""
         if isinstance(categories, str):
             categories = [categories]
         root = QgsProject.instance().layerTreeRoot()
@@ -611,19 +642,56 @@ class IepnbTools:
             target_group = parent_group.findGroup(sub_group_name) or parent_group.insertGroup(0, sub_group_name)
         accion_borrar = bool(target_group.findGroup(categories[0]))
         for cat in categories:
-            self.load_wms_category_into_group(cat, target_group, visible_layer_name, force_remove=accion_borrar)
+            self.load_wms_category_into_group(cat, target_group, force_remove=accion_borrar)
         if accion_borrar:
             if sub_group_name and not target_group.children():
                 parent_group.removeChildNode(target_group)
             if not parent_group.children():
                 root.removeChildNode(parent_group)
         else:
-            target_group.setExpanded(False)
+            # Durante la carga los grupos van apareciendo desplegados (se ve qué
+            # se está cargando); al terminar se pliegan todos los de categoría y
+            # subgrupo, dejando visible solo la lista de categorías.
+            self._plegar_grupos(target_group)
+            target_group.setExpanded(True)
             parent_group.setExpanded(True)
+            # Casillas de los contenedores: desmarcadas si no hay nada activo.
+            for contenedor in (target_group, parent_group):
+                if not self._hay_capa_activa(contenedor):
+                    contenedor.setItemVisibilityChecked(False)
 
-    def load_wms_category_into_group(self, category_name, parent_group_obj, visible_layer_name=None,
-                                     force_remove=False):
+    def _hay_capa_activa(self, grupo):
+        """True si hay alguna capa marcada en cualquier nivel por debajo de 'grupo'."""
+        for hijo in grupo.children():
+            if isinstance(hijo, QgsLayerTreeGroup):
+                if self._hay_capa_activa(hijo):
+                    return True
+            elif hijo.isVisible():
+                return True
+        return False
+
+    def _plegar_grupos(self, grupo):
+        """Pliega recursivamente los grupos hijos de 'grupo' y desmarca su casilla
+        si no tienen ninguna capa activa debajo (así no queda nada "clicado" y, al
+        marcar una capa, QGIS vuelve a marcar sus grupos). Devuelve True si hay
+        alguna capa activa en 'grupo'."""
+        hay_activa = False
+        for hijo in grupo.children():
+            if isinstance(hijo, QgsLayerTreeGroup):
+                hijo.setExpanded(False)
+                if self._plegar_grupos(hijo):
+                    hay_activa = True
+                else:
+                    hijo.setItemVisibilityChecked(False)
+            elif hijo.isVisible():
+                hay_activa = True
+        return hay_activa
+
+    def load_wms_category_into_group(self, category_name, parent_group_obj, force_remove=False):
         if category_name not in CATALOGO_WMS:
+            QgsMessageLog.logMessage(
+                f"Categoría no encontrada en el catálogo: {category_name}",
+                "IEPNB Tools", Qgis.MessageLevel.Warning)
             return
         group = parent_group_obj.findGroup(category_name)
         if group and force_remove:
@@ -632,10 +700,10 @@ class IepnbTools:
             return
         if not group:
             group = parent_group_obj.insertGroup(0, category_name)
-            group.setExpanded(False)
-            self._recursive_layer_loader(CATALOGO_WMS[category_name], group, visible_layer_name)
+            group.setExpanded(True)
+            self._recursive_layer_loader(CATALOGO_WMS[category_name], group)
 
-    def _recursive_layer_loader(self, data_dict, parent_group, visible_layer_name):
+    def _recursive_layer_loader(self, data_dict, parent_group):
         project = QgsProject.instance()
         for name, content in data_dict.items():
             if isinstance(content, dict) and "url" in content:
@@ -670,12 +738,12 @@ class IepnbTools:
                         lyr.setOpacity(0.7)
                     project.addMapLayer(lyr, False)
                     node = parent_group.addLayer(lyr)
-                    node.setExpanded(False)
-                    node.setItemVisibilityChecked(name == visible_layer_name)
+                    node.setExpanded(False)  # leyenda plegada: si no, la lista sería interminable
+                    node.setItemVisibilityChecked(False)
             elif isinstance(content, dict):
                 sub = parent_group.addGroup(name)
-                sub.setExpanded(False)
-                self._recursive_layer_loader(content, sub, visible_layer_name)
+                sub.setExpanded(True)
+                self._recursive_layer_loader(content, sub)
 
     def _recursive_cleanup(self, data_dict):
         project = QgsProject.instance()

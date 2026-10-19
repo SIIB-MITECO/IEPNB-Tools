@@ -40,6 +40,79 @@ from qgis.gui import QgsMapTool, QgsMapToolEmitPoint, QgsRubberBand
 
 from .config import CONFIG_IDENTIFY as CONFIG_SERVICIOS, CONFIG_TERRITORY
 
+# Ancho/longitud mínimos (m) para que un solape cuente como cruce real. Evita que
+# los límites compartidos con municipios colindantes (que "tocan" la máscara o
+# la solapan unos milímetros por redondeo de coordenadas) aparezcan como cruces.
+UMBRAL_SOLAPE_M = 1.0
+
+
+def recorte_significativo(geom, mask, xform_metrica):
+    """Intersección de geom con mask descartando los 'minicruces'.
+
+    - Polígonos: solo se conservan las partes poligonales cuya área sea >= 1 m² y
+      cuyo ancho medio (2·área/perímetro) sea >= 1 m. Un simple roce de borde
+      (línea o punto) o una astilla de redondeo no cuentan.
+    - Líneas: solo tramos de al menos 1 m.
+    - Puntos: se conservan.
+    Devuelve la geometría recortada o None si no hay cruce real."""
+    if geom is None or geom.isNull() or not geom.intersects(mask):
+        return None
+    inter = geom.intersection(mask)
+    if inter is None or inter.isNull() or inter.isEmpty():
+        return None
+
+    tipo = geom.type()
+    if tipo == QgsWkbTypes.GeometryType.PointGeometry:
+        return inter
+
+    buenas = []
+    for parte in inter.asGeometryCollection():
+        if parte.isNull() or parte.isEmpty() or parte.type() != tipo:
+            continue
+        m = QgsGeometry(parte)
+        if xform_metrica is not None:
+            m.transform(xform_metrica)
+        if tipo == QgsWkbTypes.GeometryType.PolygonGeometry:
+            area = m.area()
+            per = m.length()
+            if area < UMBRAL_SOLAPE_M ** 2 or (per > 0 and 2.0 * area / per < UMBRAL_SOLAPE_M):
+                continue
+        else:
+            if m.length() < UMBRAL_SOLAPE_M:
+                continue
+        buenas.append(parte)
+    if not buenas:
+        return None
+    return buenas[0] if len(buenas) == 1 else QgsGeometry.collectGeometry(buenas)
+
+
+def clave_entidad(srv, props, id_feature=None):
+    """Clave que identifica a UNA entidad del servicio (un municipio, una
+    provincia, un espacio protegido...). Se usa para unir los fragmentos
+    ("micropolígonos") de una misma entidad que el WFS devuelve en varias
+    filas, sin juntar nunca entidades distintas.
+
+    Ojo: la columna "info" de cada servicio (provincia de un municipio, CCAA de
+    una provincia, figura de un espacio...) NO identifica a la entidad: la
+    comparten muchas. Agrupar por ella juntaba, por ejemplo, todos los
+    municipios de una provincia en uno solo."""
+    sid = srv.get("id")
+    if sid == "Municipio":
+        # codigoine es único por municipio; si faltara, nombre + provincia
+        return ("Municipio", props.get("codigoine") or (props.get("nombre"), props.get("nut3_nom")))
+    if sid == "Provincia":
+        return ("Provincia", props.get("nut3") if props.get("nut3") is not None else props.get("nut3_nom"))
+    if sid == "CCAA":
+        return ("CCAA", props.get("nut2") if props.get("nut2") is not None else props.get("nut2_nom"))
+
+    nombre = props.get(srv.get("col_nom")) or props.get("nombre") or props.get("name")
+    info = props.get(srv.get("col_inf"))
+    if nombre in (None, ""):
+        # Sin nombre no hay forma de saber qué fragmentos son la misma entidad:
+        # cada fila cuenta como una entidad distinta (antes se juntaban todas).
+        return (sid, "__fila__", id_feature if id_feature is not None else id(props))
+    return (sid, nombre, info)
+
 
 class ManualPolygonTool(QgsMapTool):
     polygon_finished = pyqtSignal(object)
@@ -585,6 +658,14 @@ class IdentifyTab(QWidget):
         reply = self.network_manager.get(QtNetwork.QNetworkRequest(url))
         reply.finished.connect(lambda: self.process_wfs_response(reply, index))
 
+    def _xform_metrica(self):
+        """4326 -> ETRS89 LAEA (equivalente en área) para medir los solapes en metros."""
+        if getattr(self, "_xf_metrica", None) is None:
+            self._xf_metrica = QgsCoordinateTransform(
+                QgsCoordinateReferenceSystem("EPSG:4326"),
+                QgsCoordinateReferenceSystem("EPSG:3035"), QgsProject.instance())
+        return self._xf_metrica
+
     def process_wfs_response(self, reply, index):
         srv = CONFIG_SERVICIOS[index]
         raw = reply.readAll().data()
@@ -607,8 +688,8 @@ class IdentifyTab(QWidget):
                         feat_geom = QgsJsonUtils.geometryFromGeoJson(geom_json_str)
 
                         # Intersección espacial con la máscara
-                        if feat_geom and not feat_geom.isNull() and hasattr(self, 'mask_4326') and feat_geom.intersects(
-                                self.mask_4326):
+                        if feat_geom and not feat_geom.isNull() and hasattr(self, 'mask_4326') and recorte_significativo(
+                                feat_geom, self.mask_4326, self._xform_metrica()) is not None:
                             props = f.get("properties", {})
 
                             # --- 1. EXTRACCIÓN ROBUSTA DE NOMBRES (Inspirado en territory.py) ---
@@ -624,17 +705,21 @@ class IdentifyTab(QWidget):
 
                             info_val = str(info_val).strip(" ,") if info_val else "Elemento sin nombre"
 
-                            # Agrupamos en el diccionario
-                            if info_val not in grupos_locales:
-                                grupos_locales[info_val] = []
-                            grupos_locales[info_val].append(f)
+                            # Agrupamos por ENTIDAD (no por la columna "info", que
+                            # comparten muchas entidades distintas)
+                            clave = clave_entidad(srv, props, f.get("id"))
+                            if clave not in grupos_locales:
+                                grupos_locales[clave] = {"info": info_val, "fragmentos": []}
+                            grupos_locales[clave]["fragmentos"].append(f)
 
                     if grupos_locales:
                         filtered_features = []
                         collected_infos = []
 
                         # --- 2. UNIFICACIÓN DE MICROPOLÍGONOS ---
-                        for info_val, lista_micropoligonos in grupos_locales.items():
+                        for clave, grupo in grupos_locales.items():
+                            info_val = grupo["info"]
+                            lista_micropoligonos = grupo["fragmentos"]
                             if len(lista_micropoligonos) == 1:
                                 filtered_features.append(lista_micropoligonos[0])
                             else:
@@ -788,33 +873,38 @@ class IdentifyTab(QWidget):
             orig_type = vlayer.geometryType()
 
             # --- LÓGICA DE AGRUPACIÓN ---
-            nom_idx = -1
-            for c in ["nombre", "monte", "site_name", "nb_via", "id"]:
-                idx = fields.indexOf(c)
-                if idx != -1:
-                    nom_idx = idx
-                    break
+            # Una entidad = una fila de salida. La clave es la misma que se usa al
+            # consultar el servicio (ver clave_entidad): así dos municipios que se
+            # llamen igual en provincias distintas, o un LIC y una ZEPA con el
+            # mismo nombre, no se juntan por error.
+            srv_actual = next((x for x in CONFIG_SERVICIOS
+                               if x["id"] == vlayer.customProperty("service_id")), None)
+            nombres_campos = [fld.name() for fld in vlayer.fields()]
 
             grouped_intersections = {}
 
             # 2. Intersectar y agrupar en el diccionario temporal
             for feat in vlayer.getFeatures():
-                if feat.geometry().intersects(mask_geom):
-                    intersection = feat.geometry().intersection(mask_geom)
-                    if not intersection.isEmpty():
-                        # Usar el nombre como clave (o el ID si no hay nombre)
-                        clave = str(feat.attribute(nom_idx)) if nom_idx != -1 else str(feat.id())
+                intersection = recorte_significativo(feat.geometry(), mask_geom, xform_area)
+                if intersection is not None:
+                    props = {}
+                    for nombre_campo in nombres_campos:
+                        valor = feat.attribute(nombre_campo)
+                        if valor is None or (hasattr(valor, "isNull") and valor.isNull()):
+                            valor = None
+                        props[nombre_campo] = valor
+                    clave = clave_entidad(srv_actual or {}, props, feat.id())
 
-                        if clave in grouped_intersections:
-                            # Si ya existe esta vía o monte, unimos las geometrías (Dissolve)
-                            grouped_intersections[clave]['geom'] = grouped_intersections[clave]['geom'].combine(
-                                intersection)
-                        else:
-                            # Si no existe, guardamos la primera geometría y la entidad original
-                            grouped_intersections[clave] = {
-                                'geom': QgsGeometry(intersection),
-                                'feat': feat
-                            }
+                    if clave in grouped_intersections:
+                        # Si ya existe esta vía o monte, unimos las geometrías (Dissolve)
+                        grouped_intersections[clave]['geom'] = grouped_intersections[clave]['geom'].combine(
+                            intersection)
+                    else:
+                        # Si no existe, guardamos la primera geometría y la entidad original
+                        grouped_intersections[clave] = {
+                            'geom': QgsGeometry(intersection),
+                            'feat': feat
+                        }
 
             # 3. Procesar los elementos ya agrupados para calcular su área/longitud total
             for clave, data in grouped_intersections.items():

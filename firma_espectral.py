@@ -21,13 +21,16 @@ import json
 from datetime import datetime, timedelta, timezone
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QUrl, QByteArray, QEventLoop, QDate
+from qgis.PyQt.QtCore import Qt, QUrl, QByteArray, QEventLoop, QDate, QObject, pyqtSignal
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                                 QPushButton, QDateEdit, QDialogButtonBox, QMenu)
+                                 QPushButton, QDateEdit, QDialogButtonBox, QMenu,
+                                 QFrame, QComboBox, QWidget)
+from qgis.PyQt.QtGui import QPainter, QColor, QPen
 from qgis.PyQt import QtNetwork
 from qgis.gui import QgsMapTool
 from qgis.core import (QgsProject, QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform, QgsNetworkAccessManager)
+                       QgsCoordinateTransform, QgsNetworkAccessManager,
+                       QgsMessageLog, Qgis)
 
 from .config import (CDSE_STATS_URL, BANDAS_S2, REGIONES_ESPECTRO, FIRMA_VENTANA_DIAS_BUSQUEDA,
                      GAP_DESDE_NM, GAP_HASTA_NM, GAP_COMPRESION, REFERENCIAS_FIRMA)
@@ -90,34 +93,529 @@ class FirmaEspectralTool(QgsMapTool):
 # DIÁLOGO: FECHA APROXIMADA
 # =====================================================================
 
-class DialogoFechaAproximada(QDialog):
-    def __init__(self, parent=None):
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+_COLOR_FECHA = "#6d4c9f"   # mismo morado de las tarjetas de acción de la galería
+_FECHA_MINIMA = QDate(2017, 1, 1)
+
+# (texto del botón, mes, día) -> fecha central de cada estación; la búsqueda
+# de ±N días alrededor de ella cae dentro de la propia estación.
+_ESTACIONES = [("🌱 Primavera", 5, 5), ("☀️ Verano", 8, 5),
+               ("🍂 Otoño", 11, 5), ("❄️ Invierno", 2, 5)]
+
+
+class LineaTemporalDisponibilidad(QWidget):
+    """Franja con una barra por cada imagen de Sentinel-2 disponible sobre el
+    punto: color y altura según la parte despejada de nubes (verde = despejada,
+    ámbar = parcial, gris = nublada).
+
+    Por defecto enseña una ventana de ~6 meses centrada en la fecha elegida
+    (barras anchas y separadas, fáciles de pinchar); con "Ver año" enseña el
+    año completo. Al pasar el ratón se resalta la imagen que se elegiría (la
+    más cercana al cursor) y se emite su información; al pinchar se emite la
+    fecha de esa imagen."""
+
+    fecha_elegida = pyqtSignal(QDate)
+    ventana_cambiada = pyqtSignal()
+    info_cambiada = pyqtSignal(str)
+
+    _VERDE, _AMBAR, _GRIS = QColor("#43a047"), QColor("#f9a825"), QColor("#90a4ae")
+    _MORADO = QColor(_COLOR_FECHA)
+    _ALTO_BARRAS = 50
+    _MARGEN = 8
+    _DIAS_VENTANA = 183
+    _ALCANCE_IMAN = 60          # píxeles: dentro de este radio se elige la imagen más cercana
+    TEXTO_AYUDA = "Pasa el ratón por las barras y pincha para elegir esa imagen"
+
+    def __init__(self, hoy, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Firma espectral - Fecha aproximada")
-        self.setMinimumWidth(380)
+        self.setFixedHeight(96)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._hoy = hoy
+        self._por_anio = {}          # año -> [(QDate, fraccion)]
+        self._modo_anio = False
+        self._ini = self._fin = None
+        self._fecha = None
+        self._mensaje = ""
+        self._hover = None           # (QDate, fraccion) de la imagen resaltada
+
+    # --- ventana visible
+    def rango(self):
+        return self._ini, self._fin
+
+    def anios_visibles(self):
+        return sorted({self._ini.year(), self._fin.year()}) if self._ini else []
+
+    def modo_anio(self):
+        return self._modo_anio
+
+    def alternar_modo(self):
+        self._modo_anio = not self._modo_anio
+        self._centrar(self._fecha or self._hoy)
+
+    def _centrar(self, qdate):
+        """Coloca la ventana alrededor de qdate respetando 2017 - hoy."""
+        if self._modo_anio:
+            self._ini, self._fin = QDate(qdate.year(), 1, 1), QDate(qdate.year(), 12, 31)
+        else:
+            mitad = self._DIAS_VENTANA // 2
+            ini, fin = qdate.addDays(-mitad), qdate.addDays(self._DIAS_VENTANA - mitad)
+            if fin > self._hoy:
+                fin, ini = self._hoy, self._hoy.addDays(-self._DIAS_VENTANA)
+            if ini < _FECHA_MINIMA:
+                ini, fin = _FECHA_MINIMA, _FECHA_MINIMA.addDays(self._DIAS_VENTANA)
+            self._ini, self._fin = ini, fin
+        self._hover = None
+        self.update()
+        self.ventana_cambiada.emit()
+
+    def desplazar(self, dias):
+        """Mueve la ventana (no el día elegido). Solo en la vista de ~6 meses."""
+        if self._modo_anio or self._ini is None:
+            return
+        ini = self._ini.addDays(dias)
+        if ini < _FECHA_MINIMA:
+            ini = _FECHA_MINIMA
+        if ini.addDays(self._DIAS_VENTANA) > self._hoy:
+            ini = self._hoy.addDays(-self._DIAS_VENTANA)
+        self._ini, self._fin = ini, ini.addDays(self._DIAS_VENTANA)
+        self._hover = None
+        self.update()
+        self.ventana_cambiada.emit()
+
+    def puede_retroceder(self):
+        return not self._modo_anio and self._ini is not None and self._ini > _FECHA_MINIMA
+
+    def puede_avanzar(self):
+        return not self._modo_anio and self._fin is not None and self._fin < self._hoy
+
+    # --- datos y estado
+    def set_imagenes(self, anio, imagenes):
+        self._por_anio[anio] = sorted(imagenes, key=lambda par: par[0])
+        self.update()
+
+    def set_mensaje(self, mensaje):
+        self._mensaje = mensaje
+        self.update()
+
+    def marcar_fecha(self, qdate):
+        self._fecha = qdate
+        fuera = (self._ini is None or not (self._ini <= qdate <= self._fin)
+                 or (self._modo_anio and qdate.year() != self._ini.year()))
+        if fuera:
+            self._centrar(qdate)
+        else:
+            self.update()
+
+    def imagenes_visibles(self):
+        if self._ini is None:
+            return []
+        return [(q, f) for lista in self._por_anio.values() for q, f in lista
+                if self._ini <= q <= self._fin]
+
+    # --- geometría
+    def _x_de(self, qdate):
+        dias = self._ini.daysTo(self._fin) or 1
+        ancho = self.width() - 2 * self._MARGEN
+        return self._MARGEN + ancho * self._ini.daysTo(qdate) / dias
+
+    def _fecha_de(self, x):
+        dias = self._ini.daysTo(self._fin)
+        ancho = max(1, self.width() - 2 * self._MARGEN)
+        frac = min(max((x - self._MARGEN) / ancho, 0.0), 1.0)
+        return self._ini.addDays(int(round(frac * dias)))
+
+    def _imagen_cercana(self, x):
+        """La imagen visible más próxima a x, si cae dentro del alcance del imán."""
+        mejor, dist = None, self._ALCANCE_IMAN + 1
+        for qdate, fraccion in self.imagenes_visibles():
+            d = abs(self._x_de(qdate) - x)
+            if d < dist:
+                mejor, dist = (qdate, fraccion), d
+        return mejor
+
+    @classmethod
+    def _color(cls, fraccion):
+        return cls._VERDE if fraccion >= 0.8 else (cls._AMBAR if fraccion >= 0.5 else cls._GRIS)
+
+    # --- dibujo
+    def paintEvent(self, _evento):
+        if self._ini is None:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(QPen(QColor("#e0e0e0")))
+        p.setBrush(QColor("#fafafa"))
+        p.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 6, 6)
+
+        base = self._MARGEN + self._ALTO_BARRAS
+        fuente = p.font()
+        fuente.setPointSizeF(7.5)
+        p.setFont(fuente)
+
+        # Línea base y meses
+        p.setPen(QPen(QColor("#ccc")))
+        p.drawLine(self._MARGEN, base + 1, self.width() - self._MARGEN, base + 1)
+        mes = QDate(self._ini.year(), self._ini.month(), 1)
+        primero = True
+        while mes <= self._fin:
+            if mes >= self._ini:
+                x = int(self._x_de(mes))
+                p.setPen(QPen(QColor("#999")))
+                p.drawLine(x, base + 2, x, base + 6)
+                nombre = _MESES[mes.month() - 1][:3].capitalize()
+                if mes.month() == 1 or primero:
+                    nombre += f" {mes.year()}"
+                p.drawText(x + 2, base + 18, nombre)
+                primero = False
+            mes = mes.addMonths(1)
+
+        if self._mensaje:
+            p.setPen(QPen(QColor("#777")))
+            p.drawText(self._MARGEN, self._MARGEN, self.width() - 2 * self._MARGEN,
+                       self._ALTO_BARRAS, int(Qt.AlignmentFlag.AlignCenter), self._mensaje)
+
+        ancho_barra = 3 if self._modo_anio else 6
+        p.setPen(Qt.PenStyle.NoPen)
+
+        # Columna resaltada de la imagen que se elegiría
+        if self._hover is not None:
+            x = int(self._x_de(self._hover[0]))
+            p.setBrush(QColor(109, 76, 159, 45))
+            p.drawRoundedRect(x - 8, self._MARGEN - 3, 16, self._ALTO_BARRAS + 6, 4, 4)
+
+        for qdate, fraccion in self.imagenes_visibles():
+            alto = 10 + (self._ALTO_BARRAS - 10) * max(0.0, min(1.0, fraccion))
+            x = int(self._x_de(qdate))
+            resaltada = self._hover is not None and self._hover[0] == qdate
+            ancho = ancho_barra + 3 if resaltada else ancho_barra
+            p.setBrush(self._color(fraccion))
+            p.drawRect(x - ancho // 2, int(base - alto), ancho, int(alto))
+
+        # Fecha marcada
+        if self._fecha is not None and self._ini <= self._fecha <= self._fin:
+            x = int(self._x_de(self._fecha))
+            p.setPen(QPen(self._MORADO, 2))
+            p.drawLine(x, self._MARGEN - 3, x, base + 1)
+
+    # --- ratón
+    @staticmethod
+    def _x_evento(evento):
+        return (evento.position() if hasattr(evento, "position") else evento.pos()).x()
+
+    def mouseMoveEvent(self, evento):
+        if self._ini is None:
+            return
+        cerca = self._imagen_cercana(self._x_evento(evento))
+        if cerca != self._hover:
+            self._hover = cerca
+            self.update()
+            if cerca:
+                qdate, fraccion = cerca
+                self.info_cambiada.emit(
+                    f"📅 {qdate.toString('dd/MM/yyyy')} · {fraccion * 100:.0f} % despejado")
+            else:
+                self.info_cambiada.emit(self.TEXTO_AYUDA)
+
+    def leaveEvent(self, _evento):
+        if self._hover is not None:
+            self._hover = None
+            self.update()
+        self.info_cambiada.emit(self.TEXTO_AYUDA)
+
+    def mousePressEvent(self, evento):
+        if evento.button() != Qt.MouseButton.LeftButton or self._ini is None:
+            return
+        x = self._x_evento(evento)
+        cerca = self._imagen_cercana(x)
+        self.fecha_elegida.emit(cerca[0] if cerca else self._fecha_de(x))
+
+
+class DialogoFechaAproximada(QDialog):
+    """Selector de fecha para Firma espectral y Ver imagen: atajos rápidos
+    (hoy, hace 1 mes...), selección por estación y año, y el calendario clásico
+    para ajustar el día exacto. Una frase se actualiza sola y dice qué rango de
+    fechas se va a explorar."""
+
+    def __init__(self, parent=None, token=None, lat=None, lon=None):
+        super().__init__(parent)
+        self.setWindowTitle("Elegir fecha")
+        self.setMinimumWidth(760)
+        self._hoy = QDate.currentDate()
+        # Datos para la línea temporal de imágenes disponibles (opcionales)
+        self._token, self._lat, self._lon = token, lat, lon
+        self._cache_anios = {}       # año -> [(QDate, fraccion)]
+        self._cargando = set()       # años con una petición en curso
+        self._fallidos = set()       # años cuya última petición falló
+        self._cerrado = False
+
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
 
-        lbl_intro = QLabel(
-            "Elige una fecha aproximada. Buscaremos la adquisición de "
-            "Sentinel-2 real más despejada de nubes cerca de esa fecha "
-            f"(± {FIRMA_VENTANA_DIAS_BUSQUEDA} días) — puede que el resultado "
-            "no sea exactamente el día pedido.")
-        lbl_intro.setWordWrap(True)
-        layout.addWidget(lbl_intro)
+        # --- Cabecera: la fecha elegida, en grande
+        cabecera = QFrame()
+        cabecera.setStyleSheet(
+            "QFrame { background-color: rgba(109, 76, 159, 22); "
+            "border: 1px solid rgba(109, 76, 159, 90); border-radius: 10px; }")
+        lay_cab = QVBoxLayout(cabecera)
+        lay_cab.setContentsMargins(14, 10, 14, 10)
+        lay_cab.setSpacing(2)
+        etiqueta_pregunta = QLabel("📅  ¿Qué fecha te interesa?")
+        etiqueta_pregunta.setStyleSheet(
+            f"color: {_COLOR_FECHA}; font-size: 11px; font-weight: bold; border: none; "
+            f"background: transparent;")
+        self.lbl_fecha = QLabel()
+        self.lbl_fecha.setStyleSheet(
+            "font-size: 20px; font-weight: bold; color: #333; border: none; background: transparent;")
+        self.lbl_rango = QLabel()
+        self.lbl_rango.setWordWrap(True)
+        self.lbl_rango.setStyleSheet(
+            "font-size: 11px; color: #555; border: none; background: transparent;")
+        lay_cab.addWidget(etiqueta_pregunta)
+        lay_cab.addWidget(self.lbl_fecha)
+        lay_cab.addWidget(self.lbl_rango)
+        layout.addWidget(cabecera)
 
+        # --- Atajos rápidos
+        layout.addWidget(self._titulo_seccion("Atajos"))
+        fila_atajos = QHBoxLayout()
+        fila_atajos.setSpacing(6)
+        for texto, meses in (("Hoy", 0), ("Hace 1 mes", 1), ("Hace 6 meses", 6), ("Hace 1 año", 12)):
+            boton = self._boton_fecha(texto)
+            boton.clicked.connect(lambda _c=False, m=meses: self._poner_fecha(self._hoy.addMonths(-m)))
+            fila_atajos.addWidget(boton)
+        layout.addLayout(fila_atajos)
+
+        # --- Por estación del año
+        layout.addWidget(self._titulo_seccion("Por estación del año"))
+        fila_estacion = QHBoxLayout()
+        fila_estacion.setSpacing(6)
+        self.combo_anio = QComboBox()
+        for anio in range(self._hoy.year(), _FECHA_MINIMA.year() - 1, -1):
+            self.combo_anio.addItem(str(anio), anio)
+        self.combo_anio.setMinimumWidth(70)
+        fila_estacion.addWidget(self.combo_anio)
+        self.botones_estacion = []
+        for texto, mes, dia in _ESTACIONES:
+            boton = self._boton_fecha(texto)
+            boton.clicked.connect(lambda _c=False, m=mes, d=dia: self._poner_estacion(m, d))
+            self.botones_estacion.append((boton, mes, dia))
+            fila_estacion.addWidget(boton)
+        layout.addLayout(fila_estacion)
+        self.combo_anio.currentIndexChanged.connect(self._actualizar_estaciones)
+        self.combo_anio.currentIndexChanged.connect(self._al_cambiar_anio)
+
+        # --- Línea temporal: imágenes disponibles en el punto y su nubosidad
+        self.linea = None
+        if token and lat is not None and lon is not None:
+            layout.addWidget(self._titulo_seccion("Imágenes disponibles en este punto"))
+            self.linea = LineaTemporalDisponibilidad(self._hoy)
+            self.linea.fecha_elegida.connect(self._poner_fecha)
+            self.linea.ventana_cambiada.connect(self._al_cambiar_ventana)
+            layout.addWidget(self.linea)
+
+            fila_nav = QHBoxLayout()
+            fila_nav.setSpacing(6)
+            self.btn_ant = self._boton_fecha("◀")
+            self.btn_sig = self._boton_fecha("▶")
+            for boton in (self.btn_ant, self.btn_sig):
+                boton.setFixedWidth(40)
+            self.btn_ant.setToolTip("Meses anteriores")
+            self.btn_sig.setToolTip("Meses siguientes")
+            self.btn_ant.clicked.connect(lambda _c=False: self.linea.desplazar(-90))
+            self.btn_sig.clicked.connect(lambda _c=False: self.linea.desplazar(90))
+            self.lbl_rango_linea = QLabel()
+            self.lbl_rango_linea.setStyleSheet("color: #555; font-size: 11px;")
+            self.btn_modo = self._boton_fecha("Ver año completo")
+            self.btn_modo.clicked.connect(lambda _c=False: self.linea.alternar_modo())
+            fila_nav.addWidget(self.btn_ant)
+            fila_nav.addWidget(self.btn_sig)
+            fila_nav.addWidget(self.lbl_rango_linea)
+            fila_nav.addStretch()
+            fila_nav.addWidget(self.btn_modo)
+            layout.addLayout(fila_nav)
+
+            self.lbl_info = QLabel(LineaTemporalDisponibilidad.TEXTO_AYUDA)
+            self.lbl_info.setStyleSheet("color: #444; font-size: 11px; font-weight: 600;")
+            self.lbl_info.setMinimumHeight(16)
+            self.linea.info_cambiada.connect(self.lbl_info.setText)
+            layout.addWidget(self.lbl_info)
+            leyenda = QLabel(
+                '<span style="color:#43a047">■</span> despejada &nbsp; '
+                '<span style="color:#f9a825">■</span> parcial &nbsp; '
+                '<span style="color:#90a4ae">■</span> nublada')
+            leyenda.setStyleSheet("color: #777; font-size: 10px;")
+            layout.addWidget(leyenda)
+
+        # --- Ajuste fino con el calendario
+        layout.addWidget(self._titulo_seccion("Día exacto"))
         self.fecha_edit = QDateEdit()
         self.fecha_edit.setCalendarPopup(True)
         self.fecha_edit.setDisplayFormat("dd/MM/yyyy")
-        self.fecha_edit.setDate(QDate.currentDate())
-        self.fecha_edit.setMaximumDate(QDate.currentDate())
-        self.fecha_edit.setMinimumDate(QDate(2017, 1, 1))
+        self.fecha_edit.setMaximumDate(self._hoy)
+        self.fecha_edit.setMinimumDate(_FECHA_MINIMA)
+        self.fecha_edit.setMinimumHeight(28)
         layout.addWidget(self.fecha_edit)
 
         botones = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        botones.button(QDialogButtonBox.StandardButton.Ok).setText("Buscar imagen")
+        botones.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
         botones.accepted.connect(self.accept)
         botones.rejected.connect(self.reject)
         layout.addWidget(botones)
+
+        self.fecha_edit.dateChanged.connect(self._refrescar_texto)
+        self.fecha_edit.setDate(self._hoy)
+        self._refrescar_texto()
+        self._actualizar_estaciones()
+        self._sincronizar_linea()
+
+    # --- piezas de interfaz
+    @staticmethod
+    def _titulo_seccion(texto):
+        etiqueta = QLabel(texto.upper())
+        etiqueta.setStyleSheet("color: #777; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+        return etiqueta
+
+    @staticmethod
+    def _boton_fecha(texto):
+        boton = QPushButton(texto)
+        boton.setCursor(Qt.CursorShape.PointingHandCursor)
+        boton.setMinimumHeight(30)
+        boton.setStyleSheet(f"""
+            QPushButton {{
+                border: 1px solid #d5d5d5; border-radius: 6px;
+                background-color: rgba(109, 76, 159, 14); color: #333; padding: 2px 8px;
+            }}
+            QPushButton:hover {{
+                border: 1px solid {_COLOR_FECHA}; background-color: rgba(109, 76, 159, 55);
+            }}
+            QPushButton:disabled {{ color: #aaa; background-color: #f3f3f3; }}
+        """)
+        return boton
+
+    # --- lógica
+    def _poner_fecha(self, qdate):
+        """Fija la fecha respetando los límites (2017 - hoy)."""
+        self.fecha_edit.setDate(min(max(qdate, _FECHA_MINIMA), self._hoy))
+
+    def _poner_estacion(self, mes, dia):
+        anio = self.combo_anio.currentData()
+        self._poner_fecha(QDate(anio, mes, dia))
+
+    def _actualizar_estaciones(self):
+        """Desactiva las estaciones que caen en el futuro (año en curso)."""
+        anio = self.combo_anio.currentData()
+        for boton, mes, dia in self.botones_estacion:
+            fecha = QDate(anio, mes, dia)
+            boton.setEnabled(_FECHA_MINIMA <= fecha <= self._hoy)
+
+    def _refrescar_texto(self, *_):
+        qd = self.fecha_edit.date()
+        self.lbl_fecha.setText(f"{qd.day()} de {_MESES[qd.month() - 1]} de {qd.year()}")
+        desde = max(qd.addDays(-FIRMA_VENTANA_DIAS_BUSQUEDA), _FECHA_MINIMA)
+        hasta = min(qd.addDays(FIRMA_VENTANA_DIAS_BUSQUEDA), self._hoy)
+        self.lbl_rango.setText(
+            f"Se buscará la imagen de Sentinel-2 más despejada entre el "
+            f"{desde.toString('dd/MM/yyyy')} y el {hasta.toString('dd/MM/yyyy')}. "
+            f"Puede que no sea exactamente del día elegido.")
+        anio = qd.year()
+        indice = self.combo_anio.findData(anio)
+        if indice >= 0 and indice != self.combo_anio.currentIndex():
+            self.combo_anio.blockSignals(True)
+            self.combo_anio.setCurrentIndex(indice)
+            self.combo_anio.blockSignals(False)
+            self._actualizar_estaciones()
+        self._sincronizar_linea()
+
+    # --- línea temporal (carga en segundo plano)
+    def _al_cambiar_anio(self, *_):
+        """Cambiar el año del selector lleva la fecha al mismo día de ese año
+        (o al último día disponible) y recarga la línea temporal."""
+        anio = self.combo_anio.currentData()
+        if anio is None or anio == self.fecha_edit.date().year():
+            return
+        actual = self.fecha_edit.date()
+        dia = min(actual.day(), QDate(anio, actual.month(), 1).daysInMonth())
+        self._poner_fecha(QDate(anio, actual.month(), dia))
+
+    def _sincronizar_linea(self):
+        if self.linea is None:
+            return
+        self.linea.marcar_fecha(self.fecha_edit.date())
+        self._al_cambiar_ventana()
+
+    def _al_cambiar_ventana(self):
+        """La ventana de la línea temporal ha cambiado: actualiza los controles
+        y pide los años que haga falta y aún no estén cargados."""
+        ini, fin = self.linea.rango()
+        if ini is None:
+            return
+        if self.linea.modo_anio():
+            self.lbl_rango_linea.setText(f"Año {ini.year()}")
+            self.btn_modo.setText("Ver 6 meses")
+        else:
+            self.lbl_rango_linea.setText(
+                f"{_MESES[ini.month() - 1][:3]} {ini.year()} – {_MESES[fin.month() - 1][:3]} {fin.year()}")
+            self.btn_modo.setText("Ver año completo")
+        self.btn_ant.setEnabled(self.linea.puede_retroceder())
+        self.btn_sig.setEnabled(self.linea.puede_avanzar())
+        for anio in self.linea.anios_visibles():
+            if anio not in self._cache_anios and anio not in self._cargando:
+                self._cargar_anio(anio)
+        self._actualizar_estado_linea()
+
+    def _cargar_anio(self, anio):
+        self._fallidos.discard(anio)
+        self._cargando.add(anio)
+        fin = min(QDate(anio, 12, 31), self._hoy)
+        desde = f"{anio}-01-01T00:00:00Z"
+        hasta = f"{fin.toString('yyyy-MM-dd')}T23:59:59Z"
+        try:
+            solicitar_disponibilidad(
+                self._token, self._lat, self._lon, desde, hasta,
+                lambda lista, error, a=anio: self._al_llegar(a, lista, error),
+                parent=self)
+        except Exception as exc:
+            self._cargando.discard(anio)
+            self._fallidos.add(anio)
+            QgsMessageLog.logMessage(f"Línea temporal: {exc}", "IEPNB Tools", Qgis.MessageLevel.Warning)
+
+    def _al_llegar(self, anio, lista, error):
+        if self._cerrado:
+            return   # el diálogo ya se cerró: se descarta la respuesta
+        self._cargando.discard(anio)
+        if lista is None:
+            QgsMessageLog.logMessage(f"Línea temporal {anio}: {error}", "IEPNB Tools", Qgis.MessageLevel.Warning)
+            self._fallidos.add(anio)
+        else:
+            imagenes = [(QDate(f.year, f.month, f.day), fr) for f, fr in lista]
+            self._cache_anios[anio] = imagenes
+            self.linea.set_imagenes(anio, imagenes)
+        self._actualizar_estado_linea()
+
+    def _actualizar_estado_linea(self):
+        """Mensaje sobre la franja: cargando, error o sin imágenes."""
+        visibles = self.linea.anios_visibles()
+        cargando = [a for a in visibles if a in self._cargando]
+        fallidos = [a for a in visibles if a in self._fallidos]
+        if cargando:
+            mensaje = "Cargando las imágenes de " + " y ".join(str(a) for a in cargando) + "…"
+        elif fallidos:
+            mensaje = "No se han podido cargar las imágenes (puedes elegir fecha igualmente)"
+        elif not self.linea.imagenes_visibles():
+            mensaje = "Sin imágenes de Sentinel-2 sobre este punto en este periodo"
+        else:
+            mensaje = ""
+        self.linea.set_mensaje(mensaje)
+
+    def done(self, resultado):
+        # Las peticiones en curso no se abortan (ver _al_llegar): su respuesta
+        # se descarta al llegar porque el diálogo está cerrado.
+        self._cerrado = True
+        super().done(resultado)
 
     def fecha_seleccionada(self):
         qd = self.fecha_edit.date()
@@ -189,9 +687,9 @@ function evaluatePixel(samples) {{
 # PETICIÓN GENÉRICA A LA STATISTICAL API
 # =====================================================================
 
-def _consultar_statistics(token, lat, lon, evalscript, fecha_inicio, fecha_fin, intervalo, clave_calculo):
+def _cuerpo_statistics(lat, lon, evalscript, fecha_inicio, fecha_fin, intervalo, clave_calculo):
     poligono, crs_uri = punto_a_poligono(lat, lon)
-    cuerpo = {
+    return {
         "input": {
             "bounds": {
                 "geometry": poligono,
@@ -212,10 +710,19 @@ def _consultar_statistics(token, lat, lon, evalscript, fecha_inicio, fecha_fin, 
         "calculations": {clave_calculo: {"statistics": {"default": {}}}}
     }
 
-    network_manager = QgsNetworkAccessManager.instance()
+
+def _nueva_peticion_statistics(token):
     request = QtNetwork.QNetworkRequest(QUrl(CDSE_STATS_URL))
     request.setHeader(QtNetwork.QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
     request.setRawHeader(b"Authorization", f"Bearer {token}".encode("utf-8"))
+    return request
+
+
+def _consultar_statistics(token, lat, lon, evalscript, fecha_inicio, fecha_fin, intervalo, clave_calculo):
+    cuerpo = _cuerpo_statistics(lat, lon, evalscript, fecha_inicio, fecha_fin, intervalo, clave_calculo)
+
+    network_manager = QgsNetworkAccessManager.instance()
+    request = _nueva_peticion_statistics(token)
 
     loop = QEventLoop()
     reply = network_manager.post(request, QByteArray(json.dumps(cuerpo).encode("utf-8")))
@@ -252,15 +759,9 @@ def _valor_numerico(bruto):
 # 1) BUSCAR LA MEJOR FECHA DISPONIBLE
 # =====================================================================
 
-def buscar_mejor_fecha(token, lat, lon, fecha_aproximada, ventana_dias=FIRMA_VENTANA_DIAS_BUSQUEDA):
-    """Devuelve (fecha_elegida: datetime, fraccion_valida: float) del día,
-    dentro de ± ventana_dias, con más cobertura despejada en ese punto.
-    Devuelve (None, None) si no hay ninguna adquisición en la ventana."""
-    desde = (fecha_aproximada - timedelta(days=ventana_dias)).strftime("%Y-%m-%dT00:00:00Z")
-    hasta = (fecha_aproximada + timedelta(days=ventana_dias)).strftime("%Y-%m-%dT23:59:59Z")
-
-    payload = _consultar_statistics(token, lat, lon, _evalscript_busqueda(), desde, hasta, "P1D", "cobertura")
-
+def _extraer_candidatos(payload):
+    """[(fecha, fraccion_despejada), ...] de la respuesta de _evalscript_busqueda,
+    sin los días en los que no hay paso del satélite sobre el punto."""
     candidatos = []
     for item in payload.get("data", []):
         fecha_str = item.get("interval", {}).get("from")
@@ -277,6 +778,64 @@ def buscar_mejor_fecha(token, lat, lon, fecha_aproximada, ventana_dias=FIRMA_VEN
         except ValueError:
             continue
         candidatos.append((fecha, fraccion_valida))
+    return candidatos
+
+
+class SolicitudDisponibilidad(QObject):
+    """Petición NO bloqueante de los días con imagen sobre un punto. Cuando
+    llega la respuesta llama a al_terminar(lista, error): lista = [(fecha,
+    fraccion_despejada)] y error = None, o lista = None y error = texto.
+    Es un QObject con un método como slot (y no un cierre conectado a la
+    señal) porque es el patrón que PyQt gestiona con seguridad cuando la
+    respuesta se libera dentro de su propia señal."""
+
+    def __init__(self, token, lat, lon, desde, hasta, al_terminar, parent=None):
+        super().__init__(parent)
+        self._al_terminar = al_terminar
+        cuerpo = _cuerpo_statistics(lat, lon, _evalscript_busqueda(), desde, hasta, "P1D", "cobertura")
+        self._reply = QgsNetworkAccessManager.instance().post(
+            _nueva_peticion_statistics(token), QByteArray(json.dumps(cuerpo).encode("utf-8")))
+        self._reply.finished.connect(self._fin)
+
+    def _fin(self):
+        reply, self._reply = self._reply, None
+        if reply is None:
+            return
+        error = reply.error()
+        raw = bytes(reply.readAll())
+        reply.deleteLater()
+        al_terminar, self._al_terminar = self._al_terminar, None
+        self.deleteLater()
+        if al_terminar is None:
+            return
+        if error == QtNetwork.QNetworkReply.NetworkError.OperationCanceledError:
+            return
+        if error != QtNetwork.QNetworkReply.NetworkError.NoError:
+            al_terminar(None, raw.decode("utf-8", "ignore") or str(error))
+            return
+        try:
+            lista = _extraer_candidatos(json.loads(raw))
+        except Exception as exc:
+            al_terminar(None, str(exc))
+            return
+        al_terminar(lista, None)
+
+
+def solicitar_disponibilidad(token, lat, lon, desde, hasta, al_terminar, parent=None):
+    """Lanza una SolicitudDisponibilidad y la devuelve."""
+    return SolicitudDisponibilidad(token, lat, lon, desde, hasta, al_terminar, parent)
+
+
+def buscar_mejor_fecha(token, lat, lon, fecha_aproximada, ventana_dias=FIRMA_VENTANA_DIAS_BUSQUEDA):
+    """Devuelve (fecha_elegida: datetime, fraccion_valida: float) del día,
+    dentro de ± ventana_dias, con más cobertura despejada en ese punto.
+    Devuelve (None, None) si no hay ninguna adquisición en la ventana."""
+    desde = (fecha_aproximada - timedelta(days=ventana_dias)).strftime("%Y-%m-%dT00:00:00Z")
+    hasta = (fecha_aproximada + timedelta(days=ventana_dias)).strftime("%Y-%m-%dT23:59:59Z")
+
+    payload = _consultar_statistics(token, lat, lon, _evalscript_busqueda(), desde, hasta, "P1D", "cobertura")
+
+    candidatos = _extraer_candidatos(payload)
 
     if not candidatos:
         return None, None
