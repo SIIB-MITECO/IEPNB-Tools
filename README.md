@@ -81,7 +81,7 @@ La barra inferior reúne accesos directos que cargan con un clic un conjunto ya 
 
 | Botón | Qué carga |
 | --- | --- |
-| **Banco de Datos de la Naturaleza (BDN)** | Espacios Protegidos y Propiedad (ENP, RN2000, IBAs, RAMPE, MUP, Vías Pecuarias) · Convenios Internacionales (MAB, OSPAR, RAMSAR, ZEPIM, Geoparque) · Mapa Forestal Español (Foto Fija MFE) · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales, mensuales y cambios de vegetación) |
+| **Banco de Datos de la Naturaleza (BDN)** | Espacios Protegidos y Propiedad (ENP, RN2000, IBAs, RAMPE, MUP, Vías Pecuarias) · Convenios Internacionales (MAB, OSPAR, RAMSAR, ZEPIM, Geoparque) · Mapa Forestal de España (MFE) · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales, mensuales y cambios de vegetación) |
 | **SNCZI** | Cartografía de Zonas Inundables: áreas con riesgo potencial significativo de inundación (ARPSI) |
 | **Sistema de Información de Redes (SIR – DGA)** | Hidrología Cuantitativa (SIMPA, SAIH, ERHIN) · Reservas Hidrológicas y Zonas Protegidas · Saneamiento, Vertidos y Nitratos · DPH, Hidromorfología y Restauración · Seguimiento de Aguas Superficiales y Subterráneas · Masas de Agua y Estado (PHC 2022-2027) · Planificación, Ámbitos e Hidrografía |
 | **Costas (DGC)** | Estrategias Marinas · POEM (Planes de Ordenación del Espacio Marítimo) · Dominio Público Marítimo-Terrestre y Gestión |
@@ -162,7 +162,7 @@ Catálogo buscable de servicios WMS/WMTS: **33 categorías y 351 capas**, sin co
 
 | Prefijo | Ámbito | Contenido |
 | --- | --- | --- |
-| **[IEPNB]** | Biodiversidad, bosques y espacios protegidos | Espacios Protegidos y Propiedad · Convenios Internacionales · Mapa Forestal Español · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales y mensuales, cambios anuales de vegetación) |
+| **[IEPNB]** | Biodiversidad, bosques y espacios protegidos | Espacios Protegidos y Propiedad · Convenios Internacionales · Mapa Forestal de España · Ecosistemas, Hábitats y Paisaje · Fauna, Flora y Recursos Genéticos · Erosión e Incendios Forestales (INES) · EIKOS (alertas anuales y mensuales, cambios anuales de vegetación) |
 | **[DGA]** | Agua | Planificación e Hidrografía · Masas de Agua y Estado (PHC 2022-2027) · Seguimiento de Aguas Superficiales y Subterráneas · DPH e Hidromorfología · Saneamiento, Vertidos y Nitratos · Reservas Hidrológicas · Hidrología Cuantitativa · SNCZI |
 | **[DGC]** | Costas y mar | Dominio Público Marítimo-Terrestre · POEM · Estrategias Marinas |
 | **[DGCEA]** | Calidad y Evaluación Ambiental | Cambio Climático y LULUCF · Calidad del Aire (general y por contaminante) · Emisiones Industriales y Residuos · Ruido Ambiental |
@@ -275,6 +275,7 @@ Los datos proceden del programa **Copernicus** (ESA / Unión Europea), de acceso
 
 - **Versión 2.1.4:**
   - **Identificación:** corregido el agrupamiento de resultados (municipios por provincia y provincias por CCAA, y también ENP, Red Natura 2000… por figura), que hacía perder entidades en el corte, el informe y el CSV. Descartados los *minicruces* con colindantes.
+  - **Catálogo:** la categoría «Mapa Forestal Español (Foto Fija MFE)» pasa a llamarse «Mapa Forestal de España (MFE)».
   - **Barra inferior:** corregido el botón de Calidad Ambiental; los botones que cargan grupos de capas los dejan plegados y desmarcados al terminar.
   - **Copernicus:** credenciales pedidas al pulsar el botón y validadas al introducirlas; nuevo selector de fecha con línea temporal de imágenes disponibles; suavizado LOWESS en el Índice Histórico; cuadro de espera con *Cancelar*.
   - **Ayuda:** nuevo botón «?» con manual, vídeos e incidencias; vídeo de demostración actualizado y vídeo de creación de cuenta de Copernicus.
